@@ -217,13 +217,13 @@ export default function Contest(){
   }
 
   return (
-    <div className="min-h-screen p-6 flex justify-center">
+    <div className="min-h-screen p-2 sm:p-6 flex justify-center">
       <div className="w-full max-w-3xl">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-semibold">Contest {id}</h2>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg sm:text-xl font-semibold">Contest {id}</h2>
             {contest.creatorName || contest.creatorId ? (
-              <div className="text-sm text-gray-600">Created by {contest.creatorName ? contest.creatorName : contest.creatorId}</div>
+              <div className="text-sm muted">Created by {contest.creatorName ? contest.creatorName : contest.creatorId}</div>
             ) : null}
           </div>
     <div>
@@ -259,10 +259,10 @@ export default function Contest(){
           </div>
         </div>
 
-        <div className="mb-4 flex items-center gap-3">
-          <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Enter display name" className="p-2 border rounded" />
-          <button onClick={saveName} className="btn-accent">Save name</button>
-          <div className="text-sm text-gray-500">Name shown on leaderboard</div>
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Enter display name" className="p-2 border rounded w-full sm:w-auto" />
+          <button onClick={saveName} className="btn-accent btn-sm">Save name</button>
+          <div className="text-sm muted">Name shown on leaderboard</div>
         </div>
 
         {!isOver && (
@@ -280,11 +280,11 @@ export default function Contest(){
         ) : (
           <div className="space-y-3">
             {contest.problems.map((p, i) => (
-                    <div key={i} className="p-4 border rounded flex justify-between items-center problem-card">
-                  <div className="flex-1 min-w-0">
+                    <div key={i} className="p-3 sm:p-4 border rounded flex flex-col sm:flex-row sm:justify-between items-start sm:items-center problem-card">
+                  <div className="flex-1 min-w-0 mb-3 sm:mb-0">
                     <div className="font-medium">{i+1}. {p.title}</div>
                         <div className="text-sm muted">{problemTypes[i]}</div>
-                    <a href={`https://leetcode.com/problems/${p.slug}/`} target="_blank" rel="noreferrer" style={{color:'var(--accent)'}} className="text-sm">Open on LeetCode</a>
+                    <a href={`https://leetcode.com/problems/${p.slug}/`} target="_blank" rel="noreferrer" className="text-sm" style={{color:'var(--accent)'}}>Open on LeetCode</a>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Only allow marking after the contest has started */}
@@ -297,7 +297,7 @@ export default function Contest(){
                         return <button onClick={()=>mark(i, true)} className="btn-accent btn-sm">Mark Solved</button>
                       })()
                     ) : (
-                      <div className="text-sm text-gray-500 italic">Contest not started</div>
+                      <div className="text-sm muted italic">Contest not started</div>
                     )}
                   </div>
                 </div>

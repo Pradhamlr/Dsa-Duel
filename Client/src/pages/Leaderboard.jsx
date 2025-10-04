@@ -25,29 +25,29 @@ export default function Leaderboard(){
   useEffect(()=>{ load() }, [])
 
   return (
-    <div className="min-h-screen p-6 flex justify-center">
+    <div className="min-h-screen p-2 sm:p-6 flex justify-center">
       <div className="w-full max-w-3xl">
-        <div className="card p-6 mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Overall Leaderboard</h1>
-            <p className="muted">Top users across all contests by total solved problems.</p>
+        <div className="card p-4 sm:p-6 mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold mb-2">Overall Leaderboard</h1>
+            <p className="muted text-sm sm:text-base">Top users across all contests by total solved problems.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={()=>navigate('/')} aria-label="Home">Home</button>
-            <button onClick={load} aria-label="Refresh leaderboard">Refresh</button>
+          <div className="flex gap-2 sm:gap-3 mt-2 sm:mt-0">
+            <button className="btn-neutral btn-sm" onClick={()=>navigate('/')} aria-label="Home">Home</button>
+            <button className="btn-neutral btn-sm" onClick={load} aria-label="Refresh leaderboard">Refresh</button>
           </div>
         </div>
 
-        <div className="card p-4">
+        <div className="card p-2 sm:p-4">
           {loading ? (
             <div className="text-center p-6">Loading…</div>
           ) : rows.length === 0 ? (
             <div className="text-center p-6 muted">No data yet</div>
           ) : (
             <div className="leader-rows">
-              <div className="grid grid-cols-3 gap-2 p-3 font-medium border-b items-center"> <div>Rank</div><div>User</div><div className="text-right">Solved</div></div>
+              <div className="grid grid-cols-3 gap-2 p-2 sm:p-3 font-medium border-b items-center text-xs sm:text-base"> <div>Rank</div><div>User</div><div className="text-right">Solved</div></div>
               {rows.map((r, idx)=> (
-                <div key={r.userId} className={`leader-row ${r.userId === (localStorage.getItem('duel_userId')||'') ? 'leader-current' : ''}`}>
+                <div key={r.userId} className={`leader-row ${r.userId === (localStorage.getItem('duel_userId')||'') ? 'leader-current' : ''}` + ' text-xs sm:text-base'}>
                   <div className="text-sm">{idx+1}</div>
                   <div className="user-col">
                     <div className="user-name">{r.name || r.userId}</div>

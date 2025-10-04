@@ -207,6 +207,13 @@ input:focus, select:focus, textarea:focus {
 .user-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0 }
 .leader-count { font-weight: 700; text-align: right }
 
+/* Responsive leaderboard: stack columns on small screens for readability */
+@media (max-width: 640px) {
+   .leader-row { grid-template-columns: 40px 1fr auto; gap: 8px; padding: 10px; }
+   .leader-row .leader-count { text-align: left }
+   .grid.grid-cols-3 { grid-template-columns: 40px 1fr auto }
+}
+
 /* Small utility spacing helpers commonly used in pages */
 .center { display: flex; justify-content: center; align-items: center }
 .muted-center { color: #6b7280; text-align: center }

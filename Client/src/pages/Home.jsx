@@ -76,11 +76,11 @@ export default function Home(){
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-  <div className="w-full max-w-md card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Create Contest</h1>
-          <div className="ml-4 flex items-center gap-2">
+    <div className="min-h-screen flex items-center justify-center p-2 sm:p-6">
+  <div className="w-full max-w-md card p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold">Create Contest</h1>
+          <div className="ml-0 sm:ml-4 flex gap-2">
             <button onClick={()=>setDark(d=>!d)} className="btn-neutral btn-sm" aria-pressed={dark}>{dark ? 'Dark' : 'Light'}</button>
             <button onClick={()=>navigate('/leaderboard')} className="btn-secondary btn-sm">Leaderboard</button>
           </div>
