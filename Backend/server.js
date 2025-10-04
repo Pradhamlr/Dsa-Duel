@@ -13,7 +13,15 @@ import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client'
 
 function getPrisma() {
-  return new PrismaClient()
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    },
+    log: ['error'],
+    errorFormat: 'minimal'
+  })
 }
 
 const app = express();
