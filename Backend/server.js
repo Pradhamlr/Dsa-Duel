@@ -36,9 +36,6 @@ const corsOptions = {
 // Apply CORS to all routes
 app.use(cors(corsOptions));
 
-// Handle preflight requests explicitly
-app.options("*", cors(corsOptions));
-
 app.use(express.json());
 
 async function fetchLeetCodePool() {
