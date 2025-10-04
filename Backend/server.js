@@ -12,8 +12,8 @@ import fetch from 'node-fetch';
 import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client'
 
-function getPrisma() {
-  return new PrismaClient({
+async function withPrisma(callback) {
+  const prisma = new PrismaClient({
     datasources: {
       db: {
         url: process.env.DATABASE_URL
@@ -22,6 +22,12 @@ function getPrisma() {
     log: ['error'],
     errorFormat: 'minimal'
   })
+  
+  try {
+    return await callback(prisma)
+  } finally {
+    await prisma.$disconnect()
+  }
 }
 
 const app = express();
@@ -91,22 +97,17 @@ function getProblemType(p){
 
 app.post('/create-contest', async (req, res) => {
   try {
-    // API accepts: { numProblems, difficulty, duration }
-    // duration is in seconds (frontend will typically send minutes * 60)
     const { numProblems = 5, difficulty = 'mixed', duration } = req.body || {};
     const pool = await fetchLeetCodePool();
 
-    // Optionally filter by difficulty param if "Easy" or "Medium"
     let filtered = (difficulty === 'Easy' || difficulty === 'Medium')
       ? pool.filter(p => p.difficulty === difficulty)
       : pool;
 
-    // Optional topic filtering (frontend may send topic: 'Array', 'Tree', etc.)
     const topic = req.body && req.body.topic ? req.body.topic : null
     if (topic) {
       const byTopic = filtered.filter(p => getProblemType(p) === topic)
       if (byTopic.length < numProblems) {
-        // Not enough problems of that topic; respond with error
         return res.status(400).json({ error: 'Not enough problems for selected topic' })
       }
       filtered = byTopic
@@ -114,7 +115,6 @@ app.post('/create-contest', async (req, res) => {
 
     if (filtered.length < numProblems) return res.status(500).json({ error: 'Not enough problems' });
 
-    // pick random unique problems
     const chosen = [];
     const used = new Set();
     while (chosen.length < numProblems) {
@@ -122,35 +122,37 @@ app.post('/create-contest', async (req, res) => {
       if (!used.has(idx)) { used.add(idx); chosen.push(filtered[idx]); }
     }
 
-    // persist contest in DB using Prisma
-    const id = randomUUID().slice(0,8);
-    const durationSeconds = duration && Number.isFinite(Number(duration)) ? Number(duration) : 90 * 60
+    const result = await withPrisma(async (prisma) => {
+      const id = randomUUID().slice(0,8);
+      const durationSeconds = duration && Number.isFinite(Number(duration)) ? Number(duration) : 90 * 60
 
-    // If creator info is provided, ensure user exists (avoid FK) and store creatorId
-    let creatorId = null
-    let creatorName = null
-    if (req.body && req.body.creatorId) {
-      creatorId = req.body.creatorId
-      creatorName = req.body.creatorName || null
-      try {
-        await getPrisma().user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
-      } catch (e) {
-        console.error('User upsert error:', e)
+      let creatorId = null
+      let creatorName = null
+      if (req.body && req.body.creatorId) {
+        creatorId = req.body.creatorId
+        creatorName = req.body.creatorName || null
+        try {
+          await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
+        } catch (e) {
+          console.error('User upsert error:', e)
+        }
       }
-    }
 
-    const created = await getPrisma().contest.create({
-      data: {
-        id,
-        numProblems: Number(numProblems),
-        difficulty,
-        problems: chosen,
-        durationSeconds,
-        creatorId
-      }
+      const created = await prisma.contest.create({
+        data: {
+          id,
+          numProblems: Number(numProblems),
+          difficulty,
+          problems: chosen,
+          durationSeconds,
+          creatorId
+        }
+      })
+      
+      return { contestId: created.id, problems: chosen }
     })
 
-    res.json({ contestId: created.id, problems: chosen });
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'failed to create' });
