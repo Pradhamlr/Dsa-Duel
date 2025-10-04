@@ -32,37 +32,27 @@ async function withPrisma(callback) {
 
 const app = express();
 const allowedOrigins = [
-  'https://dsa-duel.vercel.app', // your frontend domain
-  'http://localhost:5173'         // optional, for local dev
+  'https://dsa-duel.vercel.app',
+  'http://localhost:5173'
 ]
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Log incoming origin for debugging (visible in Render logs)
     console.log('CORS check, origin:', origin)
-    // Allow non-browser or same-origin requests (e.g., server-to-server)
     if (!origin) return callback(null, true)
-
-    // direct match to whitelist
     if (allowedOrigins.includes(origin)) return callback(null, true)
-
-    // allow vercel subdomains (helps when your frontend is deployed on vercel preview links)
     try {
       if (typeof origin === 'string' && origin.endsWith('.vercel.app')) return callback(null, true)
     } catch (e) { /* ignore */ }
-
-    // otherwise reject
     const msg = 'The CORS policy for this site does not allow access from the specified Origin.'
     return callback(new Error(msg), false)
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true, // if you need cookies / auth headers
-  optionsSuccessStatus: 200, // some legacy browsers choke without this
+  credentials: true,
+  optionsSuccessStatus: 200,
 }
 
-// Apply CORS to all routes
 app.use(cors(corsOptions));
-
 app.use(express.json());
 
 async function fetchLeetCodePool() {
@@ -161,47 +151,49 @@ app.post('/create-contest', async (req, res) => {
 
 app.get('/contest/:id', async (req, res) => {
   try {
-    const id = req.params.id
-    const c = await getPrisma().contest.findUnique({ where: { id } })
-    if (!c) return res.status(404).json({ error: 'not found' });
+    const result = await withPrisma(async (prisma) => {
+      const id = req.params.id
+      const c = await prisma.contest.findUnique({ where: { id } })
+      if (!c) return null
 
-    // load results for this contest
-    const rows = await getPrisma().result.findMany({ where: { contestId: id } })
-    const results = {}
-    const userIds = new Set()
-    for (const r of rows) {
-      userIds.add(r.userId)
-      results[r.userId] = results[r.userId] || { solved: {} }
-      if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
-    }
-
-    // fetch user names for participants (if any)
-    let nameMap = {}
-    if (userIds.size > 0) {
-      const users = await getPrisma().user.findMany({ where: { id: { in: Array.from(userIds) } } })
-      nameMap = users.reduce((acc, u) => { acc[u.id] = u.name || null; return acc }, {})
-      for (const uid of Object.keys(results)) {
-        results[uid].name = nameMap[uid] || null
+      const rows = await prisma.result.findMany({ where: { contestId: id } })
+      const results = {}
+      const userIds = new Set()
+      for (const r of rows) {
+        userIds.add(r.userId)
+        results[r.userId] = results[r.userId] || { solved: {} }
+        if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
       }
-    }
 
-    // include creator info if present
-    let creatorName = null
-    if (c.creatorId) {
-      const user = await getPrisma().user.findUnique({ where: { id: c.creatorId } })
-      creatorName = user ? user.name : null
-    }
+      let nameMap = {}
+      if (userIds.size > 0) {
+        const users = await prisma.user.findMany({ where: { id: { in: Array.from(userIds) } } })
+        nameMap = users.reduce((acc, u) => { acc[u.id] = u.name || null; return acc }, {})
+        for (const uid of Object.keys(results)) {
+          results[uid].name = nameMap[uid] || null
+        }
+      }
 
-    res.json({
-      id: c.id,
-      problems: c.problems,
-      createdAt: c.createdAt ? c.createdAt.getTime() : Date.now(),
-      startTime: c.startTime ? c.startTime.getTime() : null,
-      duration: c.durationSeconds,
-      results,
-      creatorId: c.creatorId || null,
-      creatorName
+      let creatorName = null
+      if (c.creatorId) {
+        const user = await prisma.user.findUnique({ where: { id: c.creatorId } })
+        creatorName = user ? user.name : null
+      }
+
+      return {
+        id: c.id,
+        problems: c.problems,
+        createdAt: c.createdAt ? c.createdAt.getTime() : Date.now(),
+        startTime: c.startTime ? c.startTime.getTime() : null,
+        duration: c.durationSeconds,
+        results,
+        creatorId: c.creatorId || null,
+        creatorName
+      }
     })
+    
+    if (!result) return res.status(404).json({ error: 'not found' })
+    res.json(result)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed' })
@@ -210,23 +202,27 @@ app.get('/contest/:id', async (req, res) => {
 
 app.post('/contest/:id/start', async (req, res) => {
   try {
-    const id = req.params.id
-    const contest = await getPrisma().contest.findUnique({ where: { id } })
-    if (!contest) return res.status(404).json({ error: 'not found' })
-    if (contest.startTime) return res.status(400).json({ error: 'already started' })
+    const result = await withPrisma(async (prisma) => {
+      const id = req.params.id
+      const contest = await prisma.contest.findUnique({ where: { id } })
+      if (!contest) return { error: 'not found', status: 404 }
+      if (contest.startTime) return { error: 'already started', status: 400 }
 
-    const { duration, callerId } = req.body || {}
+      const { duration, callerId } = req.body || {}
 
-    // If a creator is set on the contest, only allow that creator to start
-    if (contest.creatorId && callerId && contest.creatorId !== callerId) {
-      return res.status(403).json({ error: 'only creator can start' })
-    }
+      if (contest.creatorId && callerId && contest.creatorId !== callerId) {
+        return { error: 'only creator can start', status: 403 }
+      }
 
-    const update = { startTime: new Date() }
-    if (duration && Number.isFinite(duration)) update.durationSeconds = Number(duration)
+      const update = { startTime: new Date() }
+      if (duration && Number.isFinite(duration)) update.durationSeconds = Number(duration)
 
-    const updated = await getPrisma().contest.update({ where: { id }, data: update })
-    res.json({ startedAt: updated.startTime ? updated.startTime.getTime() : Date.now(), duration: updated.durationSeconds })
+      const updated = await prisma.contest.update({ where: { id }, data: update })
+      return { startedAt: updated.startTime ? updated.startTime.getTime() : Date.now(), duration: updated.durationSeconds }
+    })
+
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    res.json(result)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed to start' })
@@ -235,89 +231,94 @@ app.post('/contest/:id/start', async (req, res) => {
 
 app.get('/contest/:id/status', async (req, res) => {
   try {
-    const id = req.params.id
-    const c = await getPrisma().contest.findUnique({ where: { id } })
-    if (!c) return res.status(404).json({ error: 'not found' })
-    res.json({ startTime: c.startTime ? c.startTime.getTime() : null, duration: c.durationSeconds })
+    const result = await withPrisma(async (prisma) => {
+      const id = req.params.id
+      const c = await prisma.contest.findUnique({ where: { id } })
+      if (!c) return null
+      return { startTime: c.startTime ? c.startTime.getTime() : null, duration: c.durationSeconds }
+    })
+    
+    if (!result) return res.status(404).json({ error: 'not found' })
+    res.json(result)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed' })
   }
 })
 
-// small endpoint to toggle mark solved by a user
 app.post('/contest/:id/mark', async (req, res) => {
   try {
-    const id = req.params.id
-    const { userId, problemIndex, solved, displayName } = req.body
-    if (!userId) return res.status(400).json({ error: 'userId required' })
+    const result = await withPrisma(async (prisma) => {
+      const id = req.params.id
+      const { userId, problemIndex, solved, displayName } = req.body
+      if (!userId) return { error: 'userId required', status: 400 }
 
-    const contest = await getPrisma().contest.findUnique({ where: { id } })
-    if (!contest) return res.status(404).json({ error: 'not found' })
-    if (!contest.startTime) return res.status(400).json({ error: 'contest not started' })
+      const contest = await prisma.contest.findUnique({ where: { id } })
+      if (!contest) return { error: 'not found', status: 404 }
+      if (!contest.startTime) return { error: 'contest not started', status: 400 }
 
-    if (solved) {
-      // Ensure the user row exists (prevents FK violation)
-      // If client supplied a displayName, persist it
-      try {
-        await getPrisma().user.upsert({
-          where: { id: userId },
-          update: { name: displayName || undefined },
-          create: { id: userId, name: displayName || undefined }
+      if (solved) {
+        try {
+          await prisma.user.upsert({
+            where: { id: userId },
+            update: { name: displayName || undefined },
+            create: { id: userId, name: displayName || undefined }
+          })
+        } catch (e) {
+          console.error('User upsert error:', e)
+        }
+
+        await prisma.result.upsert({
+          where: {
+            contestId_userId_problemIndex: {
+              contestId: id,
+              userId,
+              problemIndex: Number(problemIndex)
+            }
+          },
+          update: { solvedAt: new Date() },
+          create: { contestId: id, userId, problemIndex: Number(problemIndex), solvedAt: new Date() }
         })
-      } catch (e) {
-        console.error('User upsert error:', e)
+      } else {
+        await prisma.result.deleteMany({ where: { contestId: id, userId, problemIndex: Number(problemIndex) } })
       }
 
-      // upsert result
-      await getPrisma().result.upsert({
-        where: {
-          contestId_userId_problemIndex: {
-            contestId: id,
-            userId,
-            problemIndex: Number(problemIndex)
-          }
-        },
-        update: { solvedAt: new Date() },
-        create: { contestId: id, userId, problemIndex: Number(problemIndex), solvedAt: new Date() }
-      })
-    } else {
-      // unmark (delete row)
-      await getPrisma().result.deleteMany({ where: { contestId: id, userId, problemIndex: Number(problemIndex) } })
-    }
+      const rows = await prisma.result.findMany({ where: { contestId: id } })
+      const results = {}
+      for (const r of rows) {
+        results[r.userId] = results[r.userId] || { solved: {} }
+        if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
+      }
 
-    // return updated contest shape
-    const rows = await getPrisma().result.findMany({ where: { contestId: id } })
-    const results = {}
-    for (const r of rows) {
-      results[r.userId] = results[r.userId] || { solved: {} }
-      if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
-    }
+      return { ok: true, contest: {
+        id: contest.id,
+        problems: contest.problems,
+        createdAt: contest.createdAt ? contest.createdAt.getTime() : Date.now(),
+        startTime: contest.startTime ? contest.startTime.getTime() : null,
+        duration: contest.durationSeconds,
+        results
+      } }
+    })
 
-    res.json({ ok: true, contest: {
-      id: contest.id,
-      problems: contest.problems,
-      createdAt: contest.createdAt ? contest.createdAt.getTime() : Date.now(),
-      startTime: contest.startTime ? contest.startTime.getTime() : null,
-      duration: contest.durationSeconds,
-      results
-    } })
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    res.json(result)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed to mark' })
   }
 })
 
-// small endpoint to upsert a user name (used by Contest page)
 app.post('/user', async (req, res) => {
   try {
-    const { userId, name } = req.body || {}
-    if (!userId) return res.status(400).json({ error: 'userId required' })
-    try {
-      await getPrisma().user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
-    } catch (e) {
-      console.error('User upsert error:', e)
-    }
+    await withPrisma(async (prisma) => {
+      const { userId, name } = req.body || {}
+      if (!userId) return res.status(400).json({ error: 'userId required' })
+      try {
+        await prisma.user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
+      } catch (e) {
+        console.error('User upsert error:', e)
+      }
+    })
     res.json({ ok: true })
   } catch (err) {
     console.error(err)
@@ -325,39 +326,44 @@ app.post('/user', async (req, res) => {
   }
 })
 
-// Overall leaderboard: simple fallback to avoid prepared statement issues
 app.get('/leaderboard', async (req, res) => {
   try {
-    const results = await getPrisma().result.findMany()
-    const userCounts = {}
+    const result = await withPrisma(async (prisma) => {
+      const results = await prisma.result.findMany()
+      const userCounts = {}
+      
+      for (const result of results) {
+        userCounts[result.userId] = (userCounts[result.userId] || 0) + 1
+      }
+      
+      const userIds = Object.keys(userCounts)
+      const users = userIds.length ? await prisma.user.findMany({ where: { id: { in: userIds } } }) : []
+      const nameMap = users.reduce((acc,u)=>{ acc[u.id]=u.name||null; return acc }, {})
+      
+      const rows = Object.entries(userCounts)
+        .map(([userId, count]) => ({ userId, name: nameMap[userId]||null, solvedCount: count }))
+        .sort((a,b) => b.solvedCount - a.solvedCount)
+      
+      return { ok: true, rows }
+    })
     
-    for (const result of results) {
-      userCounts[result.userId] = (userCounts[result.userId] || 0) + 1
-    }
-    
-    const userIds = Object.keys(userCounts)
-    const users = userIds.length ? await getPrisma().user.findMany({ where: { id: { in: userIds } } }) : []
-    const nameMap = users.reduce((acc,u)=>{ acc[u.id]=u.name||null; return acc }, {})
-    
-    const rows = Object.entries(userCounts)
-      .map(([userId, count]) => ({ userId, name: nameMap[userId]||null, solvedCount: count }))
-      .sort((a,b) => b.solvedCount - a.solvedCount)
-    
-    res.json({ ok: true, rows })
+    res.json(result)
   } catch (err) {
     console.error('leaderboard error', err)
     res.status(500).json({ error: 'failed' })
   }
 })
 
-// Debug endpoint: list recent Result rows for inspection
 app.get('/debug/results', async (req, res) => {
   if (process.env.NODE_ENV === 'production' && process.env.DEBUG_RESULTS !== 'true') {
     return res.status(403).json({ error: 'forbidden' })
   }
   try {
-    const rows = await getPrisma().result.findMany({ orderBy: { id: 'desc' }, take: 100 })
-    res.json({ ok: true, rows })
+    const result = await withPrisma(async (prisma) => {
+      const rows = await prisma.result.findMany({ orderBy: { id: 'desc' }, take: 100 })
+      return { ok: true, rows }
+    })
+    res.json(result)
   } catch (err) {
     console.error('debug results error', err)
     res.status(500).json({ error: 'failed' })
