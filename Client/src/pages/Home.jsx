@@ -8,6 +8,7 @@ const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 export default function Home(){
   const [num, setNum] = useState(5)
   const [difficulty, setDifficulty] = useState('mixed')
+  const [topic, setTopic] = useState('All')
   const [durationMin, setDurationMin] = useState(90)
   const [displayName, setDisplayName] = useState(() => {
     try { return localStorage.getItem('duel_name') || '' } catch { return '' }
@@ -72,14 +73,30 @@ export default function Home(){
           <option value="Easy">Easy</option>
           <option value="Medium">Medium</option>
         </select>
-
+        <label className="block mb-2">Topic (optional)</label>
+        <select value={topic} onChange={e=>setTopic(e.target.value)} className="w-full p-2 border rounded mb-4">
+          <option value="All">Any</option>
+          <option value="Array">Array</option>
+          <option value="Linked List">Linked List</option>
+          <option value="Tree">Tree</option>
+          <option value="Graph">Graph</option>
+          <option value="String">String</option>
+          <option value="DP">DP</option>
+          <option value="Stack/Queue">Stack/Queue</option>
+          <option value="Matrix">Matrix</option>
+          <option value="Hash / Map">Hash / Map</option>
+          <option value="Binary Search">Binary Search</option>
+          <option value="Two Pointers">Two Pointers</option>
+          <option value="Other">Other</option>
+        </select>
         <label className="block mb-2">Duration (minutes)</label>
         <input type="number" min={10} max={240} value={durationMin} onChange={e=>setDurationMin(e.target.value)} className="w-full p-2 border rounded mb-3" />
 
-  <label className="block mb-2">Your name (optional)</label>
-  <input type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Anonymous" className="w-full p-2 border rounded mb-3" />
+    <label className="block mb-2">Your name</label>
+  <input type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your display name" className="w-full p-2 border rounded mb-3" />
+  {!displayName && <div className="text-sm text-red-600 mb-3">Please enter your name — it will be shown on the leaderboard.</div>}
 
-        <button onClick={create} disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg shadow-md hover:shadow-lg transition">
+        <button onClick={create} disabled={loading || !displayName} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg shadow-md hover:shadow-lg transition">
           {loading ? 'Creating contest...' : 'Create & Get Link'}
         </button>
 

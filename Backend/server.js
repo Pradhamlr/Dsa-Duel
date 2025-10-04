@@ -32,6 +32,22 @@ async function fetchLeetCodePool() {
   return pool;
 }
 
+function getProblemType(p){
+  const txt = (p.title || p.slug || '').toLowerCase()
+  if (/\b(linked ?list|linked-list)\b/.test(txt)) return 'Linked List'
+  if (/\b(tree|binary tree|bst)\b/.test(txt)) return 'Tree'
+  if (/\b(graph|dfs|bfs)\b/.test(txt)) return 'Graph'
+  if (/\b(array|arrays?)\b/.test(txt)) return 'Array'
+  if (/\b(string|strings?)\b/.test(txt)) return 'String'
+  if (/\b(dynamic programming|dp)\b/.test(txt)) return 'DP'
+  if (/\b(stack|queue|deque)\b/.test(txt)) return 'Stack/Queue'
+  if (/\b(matrix|grid)\b/.test(txt)) return 'Matrix'
+  if (/\b(hash|map|unordered)\b/.test(txt)) return 'Hash / Map'
+  if (/\b(binary search|search)\b/.test(txt)) return 'Binary Search'
+  if (/\b(two ?pointers|two-pointers)\b/.test(txt)) return 'Two Pointers'
+  return 'Other'
+}
+
 app.post('/create-contest', async (req, res) => {
   try {
     // API accepts: { numProblems, difficulty, duration }
@@ -40,9 +56,20 @@ app.post('/create-contest', async (req, res) => {
     const pool = await fetchLeetCodePool();
 
     // Optionally filter by difficulty param if "Easy" or "Medium"
-    const filtered = (difficulty === 'Easy' || difficulty === 'Medium')
+    let filtered = (difficulty === 'Easy' || difficulty === 'Medium')
       ? pool.filter(p => p.difficulty === difficulty)
       : pool;
+
+    // Optional topic filtering (frontend may send topic: 'Array', 'Tree', etc.)
+    const topic = req.body && req.body.topic ? req.body.topic : null
+    if (topic) {
+      const byTopic = filtered.filter(p => getProblemType(p) === topic)
+      if (byTopic.length < numProblems) {
+        // Not enough problems of that topic; respond with error
+        return res.status(400).json({ error: 'Not enough problems for selected topic' })
+      }
+      filtered = byTopic
+    }
 
     if (filtered.length < numProblems) return res.status(500).json({ error: 'Not enough problems' });
 
@@ -227,6 +254,19 @@ app.post('/contest/:id/mark', async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed to mark' })
+  }
+})
+
+// small endpoint to upsert a user name (used by Contest page)
+app.post('/user', async (req, res) => {
+  try {
+    const { userId, name } = req.body || {}
+    if (!userId) return res.status(400).json({ error: 'userId required' })
+    await prisma.user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'failed' })
   }
 })
 
