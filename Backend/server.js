@@ -15,7 +15,30 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 const app = express();
-app.use(cors());
+const allowedOrigins = [
+  "https://dsa-duel.vercel.app", // your frontend domain
+  "http://localhost:5173"         // optional, for local dev
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser requests
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = "The CORS policy for this site does not allow access from the specified Origin.";
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true, // if you need cookies / auth headers
+};
+
+// Apply CORS to all routes
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options("*", cors(corsOptions));
+
 app.use(express.json());
 
 async function fetchLeetCodePool() {
