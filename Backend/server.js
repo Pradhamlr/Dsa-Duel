@@ -122,7 +122,11 @@ app.post('/create-contest', async (req, res) => {
     if (req.body && req.body.creatorId) {
       creatorId = req.body.creatorId
       creatorName = req.body.creatorName || null
-      await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
+      try {
+        await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
+      } catch (e) {
+        console.error('User upsert error:', e)
+      }
     }
 
     const created = await prisma.contest.create({
@@ -243,11 +247,15 @@ app.post('/contest/:id/mark', async (req, res) => {
     if (solved) {
       // Ensure the user row exists (prevents FK violation)
       // If client supplied a displayName, persist it
-      await prisma.user.upsert({
-        where: { id: userId },
-        update: { name: displayName || undefined },
-        create: { id: userId, name: displayName || undefined }
-      })
+      try {
+        await prisma.user.upsert({
+          where: { id: userId },
+          update: { name: displayName || undefined },
+          create: { id: userId, name: displayName || undefined }
+        })
+      } catch (e) {
+        console.error('User upsert error:', e)
+      }
 
       // upsert result
       await prisma.result.upsert({
@@ -293,7 +301,11 @@ app.post('/user', async (req, res) => {
   try {
     const { userId, name } = req.body || {}
     if (!userId) return res.status(400).json({ error: 'userId required' })
-    await prisma.user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
+    try {
+      await prisma.user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
+    } catch (e) {
+      console.error('User upsert error:', e)
+    }
     res.json({ ok: true })
   } catch (err) {
     console.error(err)
@@ -304,23 +316,26 @@ app.post('/user', async (req, res) => {
 // Overall leaderboard: aggregate total solved counts per user across all contests
 app.get('/leaderboard', async (req, res) => {
   try {
-    // Use a raw SQL aggregation for reliability across Prisma versions
-    // Count all Result rows per user (consider each result row as a solved marker)
-    const raw = await prisma.$queryRaw`
-      SELECT "userId", COUNT(*) AS "solvedCount"
-      FROM "Result"
-      GROUP BY "userId"
-      ORDER BY "solvedCount" DESC
-    `
+    // Use Prisma groupBy instead of raw SQL to avoid prepared statement conflicts
+    const grouped = await prisma.result.groupBy({
+      by: ['userId'],
+      _count: {
+        userId: true
+      },
+      orderBy: {
+        _count: {
+          userId: 'desc'
+        }
+      }
+    })
 
-    // raw is an array of { userId, solvedCount }
-    console.log('leaderboard raw rows:', raw)
+    console.log('leaderboard grouped rows:', grouped)
 
-    const userIds = raw.map(r => r.userId)
+    const userIds = grouped.map(r => r.userId)
     const users = userIds.length ? await prisma.user.findMany({ where: { id: { in: userIds } } }) : []
     const nameMap = users.reduce((acc,u)=>{ acc[u.id]=u.name||null; return acc }, {})
 
-    const rows = raw.map(r=>({ userId: r.userId, name: nameMap[r.userId]||null, solvedCount: Number(r.solvedCount) }))
+    const rows = grouped.map(r=>({ userId: r.userId, name: nameMap[r.userId]||null, solvedCount: r._count.userId }))
 
     res.json({ ok: true, rows })
   } catch (err) {
