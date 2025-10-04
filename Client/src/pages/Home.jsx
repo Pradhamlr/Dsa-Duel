@@ -9,26 +9,54 @@ export default function Home(){
   const [num, setNum] = useState(5)
   const [difficulty, setDifficulty] = useState('mixed')
   const [durationMin, setDurationMin] = useState(90)
+  const [displayName, setDisplayName] = useState(() => {
+    try { return localStorage.getItem('duel_name') || '' } catch { return '' }
+  })
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [createdLink, setCreatedLink] = useState('')
 
   async function create(){
-    setLoading(true)
-    const res = await fetch(`${API}/create-contest`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numProblems: Number(num), difficulty, duration: Number(durationMin) * 60 })
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (data.contestId) {
-      const url = `${window.location.origin}/contest/${data.contestId}`
-      setCreatedLink(url)
-      // navigate to contest page as well
-      navigate(`/contest/${data.contestId}`)
+    try {
+      setLoading(true)
+      // ensure user id exists
+      let userId = null
+      try {
+        userId = localStorage.getItem('duel_userId')
+        if (!userId) {
+          userId = Math.random().toString(36).slice(2,9)
+          localStorage.setItem('duel_userId', userId)
+        }
+      } catch (err) {
+        userId = Math.random().toString(36).slice(2,9)
+      }
+      // persist display name
+      try { localStorage.setItem('duel_name', displayName || '') } catch (e) {}
+
+      const res = await fetch(`${API}/create-contest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numProblems: Number(num), difficulty, duration: Number(durationMin) * 60, creatorId: userId, creatorName: displayName })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({ error: 'failed' }))
+        throw new Error(err.error || 'Failed to create contest')
+      }
+
+      const data = await res.json()
+      setLoading(false)
+      if (data.contestId) {
+        const url = `${window.location.origin}/contest/${data.contestId}`
+        setCreatedLink(url)
+        window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest created', type:'success'}}))
+        navigate(`/contest/${data.contestId}`)
+      }
+    } catch (err) {
+      console.error('create error', err)
+      setLoading(false)
+      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message: err.message || 'Failed to create', type:'error'}}))
     }
-    else alert('failed')
   }
 
   return (
@@ -48,11 +76,13 @@ export default function Home(){
         <label className="block mb-2">Duration (minutes)</label>
         <input type="number" min={10} max={240} value={durationMin} onChange={e=>setDurationMin(e.target.value)} className="w-full p-2 border rounded mb-3" />
 
+  <label className="block mb-2">Your name (optional)</label>
+  <input type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Anonymous" className="w-full p-2 border rounded mb-3" />
+
         <button onClick={create} disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg shadow-md hover:shadow-lg transition">
           {loading ? 'Creating contest...' : 'Create & Get Link'}
         </button>
 
-        <p className="mt-3 text-sm text-gray-600">Share the contest link with ANNANMAR.</p>
 
         {createdLink && (
           <div className="mt-3 p-3 bg-gray-50 border rounded">
