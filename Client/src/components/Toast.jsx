@@ -23,11 +23,15 @@ export default function Toast(){
 
   if (!toast) return null
 
-  const bg = toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-gray-800'
+  const bgStyle = toast.type === 'success'
+    ? { background: 'var(--primary)', color: 'white' }
+    : toast.type === 'error'
+    ? { background: 'var(--danger)', color: 'white' }
+    : { background: 'var(--toast-info-bg)', color: 'var(--toast-info-color)' }
 
   return (
-    <div aria-live="polite" className="fixed bottom-6 right-6 z-50">
-      <div className={`text-white ${bg} px-4 py-2 rounded shadow-lg font-medium`}>{toast.message}</div>
+    <div aria-live="polite" style={{position:'fixed', right:24, bottom:24, zIndex: 9999}}>
+      <div style={{ padding: '8px 14px', borderRadius: 10, boxShadow: '0 6px 18px rgba(2,6,23,0.35)', fontWeight:600, ...bgStyle }}>{toast.message}</div>
     </div>
   )
 }

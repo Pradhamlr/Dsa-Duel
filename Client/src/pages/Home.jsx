@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Toast from '../components/Toast'
 
@@ -16,6 +16,21 @@ export default function Home(){
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [createdLink, setCreatedLink] = useState('')
+  const [dark, setDark] = useState(() => {
+    try {
+      const val = localStorage.getItem('duel_dark')
+      if (val === null) return true // default to dark for first-time visitors
+      return val === '1'
+    } catch { return true }
+  })
+
+  useEffect(()=>{
+    try {
+      if (dark) document.documentElement.classList.add('dark')
+      else document.documentElement.classList.remove('dark')
+      localStorage.setItem('duel_dark', dark ? '1' : '0')
+    } catch (e) {}
+  }, [dark])
 
   async function create(){
     try {
@@ -62,8 +77,14 @@ export default function Home(){
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white p-6 rounded-lg shadow">
-        <h1 className="text-2xl font-bold mb-4">DSA Duel — Create Contest</h1>
+  <div className="w-full max-w-md card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Create Contest</h1>
+          <div className="ml-4 flex items-center gap-2">
+            <button onClick={()=>setDark(d=>!d)} className="btn-neutral btn-sm" aria-pressed={dark}>{dark ? 'Dark' : 'Light'}</button>
+            <button onClick={()=>navigate('/leaderboard')} className="btn-secondary btn-sm">Leaderboard</button>
+          </div>
+        </div>
         <label className="block mb-2">Number of problems (3-5)</label>
         <input type="number" min={3} max={5} value={num} onChange={e=>setNum(e.target.value)} className="w-full p-2 border rounded mb-3" />
 
@@ -96,30 +117,32 @@ export default function Home(){
   <input type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your display name" className="w-full p-2 border rounded mb-3" />
   {!displayName && <div className="text-sm text-red-600 mb-3">Please enter your name — it will be shown on the leaderboard.</div>}
 
-        <button onClick={create} disabled={loading || !displayName} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg shadow-md hover:shadow-lg transition">
-          {loading ? 'Creating contest...' : 'Create & Get Link'}
-        </button>
+        <div className="flex justify-center">
+          <button onClick={create} disabled={loading || !displayName} className="w-full md:w-auto btn-accent wide p-3 rounded-lg">
+            {loading ? 'Creating contest...' : 'Create & Get Link'}
+          </button>
+        </div>
 
 
         {createdLink && (
-          <div className="mt-3 p-3 bg-gray-50 border rounded">
+          <div className="mt-3 p-3 card">
             <div className="text-sm mb-2">Contest created — shareable link:</div>
             <div className="flex gap-2">
               <input className="flex-1 p-2 border rounded" value={createdLink} readOnly />
-              <button onClick={async ()=>{ await navigator.clipboard.writeText(createdLink); window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) }} className="px-3 py-1 bg-blue-600 text-white rounded">Copy</button>
+              <button onClick={async ()=>{ await navigator.clipboard.writeText(createdLink); window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) }} className="btn-secondary">Copy</button>
             </div>
           </div>
         )}
         <Toast />
         {loading && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center gap-3">
-              <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div className="card p-6 flex flex-col items-center gap-3">
+              <svg className="animate-spin h-10 w-10" style={{color:'var(--accent)'}} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
               </svg>
               <div className="text-lg font-medium">Preparing your contest…</div>
-              <div className="text-sm text-gray-600">This may take a few seconds ANNA.</div>
+              <div className="text-sm muted">This may take a few seconds ANNA.</div>
             </div>
           </div>
         )}

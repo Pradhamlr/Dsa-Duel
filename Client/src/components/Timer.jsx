@@ -29,9 +29,13 @@ export default function Timer({ startTime, duration, onEnd }) {
 
   return (
     <div
-      className={`font-mono text-sm ${
-        timeLeft < 60000 ? "text-red-600" : "text-gray-800"
-      }`}
+      className="font-mono"
+      style={{
+        color: timeLeft < 60000 ? 'var(--danger)' : 'var(--accent)',
+        fontSize: '1.05rem',
+        fontWeight: 700,
+        letterSpacing: '0.02em'
+      }}
     >
       {format(mins)}:{format(secs)}
     </div>

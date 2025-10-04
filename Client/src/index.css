@@ -1,70 +1,212 @@
 @import "tailwindcss";
 
-/* Make native buttons show pointer cursor by default */
+/* Theme variables: define light defaults and a .dark override below. */
+:root {
+   --page-bg: #f7fafc;
+   --card-bg: #ffffff;
+   --text: #0f172a;
+   --muted: #6b7280;
+   --border: rgba(15,23,42,0.04);
+   /* neutral control background for buttons and similar subtle UI elements */
+   --neutral-bg: rgba(15,23,42,0.03);
+   --neutral-hover: rgba(15,23,42,0.06);
+   /* muted warmer accent (matte amber) */
+   --accent: #b66a12; /* muted amber */
+   --accent-hover: #985712;
+   /* Muted, slightly matte primary green */
+   --primary: #2f7a57;
+   --primary-hover: #27694a;
+   --secondary-start: #ffffff;
+   --secondary-end: #f7f9fb;
+   --shadow-1: rgba(12,12,14,0.06);
+   --danger: #ef4444;
+   --warning: #f59e0b;
+   --toast-info: #111827;
+}
+
+/* Dark mode variables (apply by adding .dark to the documentElement) */
+.dark {
+   --page-bg: #071021;
+   --card-bg: #071628;
+   --text: #e6eef8;
+   --muted: #9aa6b2;
+   --border: rgba(255,255,255,0.06);
+   --neutral-bg: rgba(255,255,255,0.02);
+   --neutral-hover: rgba(255,255,255,0.06);
+   /* Dark-mode accent: muted orange for dark theme */
+   --accent: #c86a1a;
+   --accent-hover: #a85814;
+   --primary: #2f7a57;
+   --primary-hover: #1f5944;
+   --secondary-start: #0b1220;
+   --secondary-end: #0f1a2a;
+   --shadow-1: rgba(0,0,0,0.5);
+   --danger: #ef4444;
+   --warning: #f59e0b;
+   --toast-info-bg: #111827;
+   --toast-info-color: #ffffff;
+}
+
+/* Clean, minimal global styles to keep the UI sleek and modern. */
+
+/* Basic button: neutral by default (transparent), with semantic classes for color */
 button {
-	cursor: pointer;
+   cursor: pointer;
+   padding: 6px 12px;
+   border-radius: 8px;
+   font-weight: 600;
+   font-size: 0.95rem;
+   color: var(--text);
+   background: transparent;
+   border: 1px solid transparent;
+   transition: background-color 150ms ease, transform 120ms ease, opacity 120ms ease;
+}
+/* Page background and default text color from theme variables */
+html, body { background: var(--page-bg); color: var(--text); transition: background 220ms ease, color 220ms ease; }
+
+/* Form controls match the theme */
+input, select, textarea {
+   /* Use card background so form controls match the surrounding card in light/dark */
+   background: var(--card-bg);
+   color: var(--text);
+   border: 1px solid var(--border);
+   border-radius: 8px;
+   transition: background 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
 }
 
-/* Utility class for non-button clickable elements */
-.clickable { cursor: pointer; }
+/* Ensure select dropdown UI matches theme; option styling helps many browsers */
+select { appearance: auto; -webkit-appearance: auto; }
+select option, option { background: var(--card-bg); color: var(--text); }
 
-/* Lightweight button affordance */
-button {
-	transition: transform 80ms ease, opacity 120ms ease;
+/* Only apply the subtle hover background to neutral buttons (not semantic colored buttons) */
+/* Apply neutral background only to truly neutral buttons (exclude semantic ones) */
+button:not(.btn-primary):not(.btn-success):not(.btn-accent):not(.btn-ghost):not(.btn-outline):not(.btn-solved):not(.btn-neutral):not(.btn-secondary) { background: var(--neutral-bg); }
+button:not(.btn-primary):not(.btn-success):not(.btn-accent):not(.btn-ghost):not(.btn-outline):not(.btn-solved):not(.btn-neutral):not(.btn-secondary):hover { background-color: var(--neutral-hover); transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+button:focus { outline: 2px solid rgba(59,130,246,0.14); outline-offset: 3px; }
+
+/* Primary / success (green) - use for Solved / success actions */
+.btn-primary, .btn-success { background: var(--primary); color: white; border: none; }
+.btn-primary:hover, .btn-success:hover { background: var(--primary-hover); }
+
+/* Solved state — distinct but muted green so it's visible without being too bright */
+.btn-solved {
+   background: var(--primary);
+   color: white;
+   border: 1px solid rgba(47,122,87,0.12);
+   padding: 6px 12px;
+   border-radius: 8px;
+   box-shadow: 0 6px 18px rgba(47,122,87,0.08);
+   min-width: 96px;
+}
+.dark .btn-solved { border-color: rgba(47,122,87,0.22); box-shadow: 0 8px 22px rgba(16,64,48,0.18); }
+
+.btn-solved:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+/* Accent (blue) - use for Save name and other primary actions */
+.btn-accent { background: var(--accent); color: white; border: 1px solid rgba(0,0,0,0.06); }
+.btn-accent:hover { background: var(--accent-hover); }
+
+/* Dark-mode tweak: softer border for accent buttons */
+.dark .btn-accent { border-color: rgba(255,255,255,0.06); }
+/* ensure accent buttons don't become too narrow or too wide on small screens */
+.btn-accent.wide { min-width: 200px; text-align: center; }
+
+/* Ghost: subtle translucent background */
+.btn-ghost { background: rgba(15,23,42,0.04); color: var(--text); border: none; }
+
+/* Outline variant keeps the clean transparent look */
+.btn-outline { background: transparent; color: var(--text); border: 1px solid rgba(0,0,0,0.08); }
+.btn-outline:hover { background: rgba(15,23,42,0.03); }
+
+/* Secondary button for navigation like Leaderboard - subtle, slightly elevated */
+.btn-secondary {
+   display: inline-flex;
+   align-items: center;
+   gap: 8px;
+   padding: 8px 12px;
+   border-radius: 10px;
+   font-weight: 600;
+   font-size: 0.95rem;
+   color: var(--text);
+   background: linear-gradient(180deg,var(--secondary-start),var(--secondary-end));
+   border: 1px solid var(--border);
+   box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset;
+   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.btn-secondary { flex: 0 0 auto; white-space: nowrap; }
+.btn-secondary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px var(--shadow-1); }
+.btn-secondary:active { transform: translateY(0); }
+.btn-secondary:focus { outline: 2px solid rgba(37,99,235,0.12); outline-offset: 3px; }
+
+/* Neutral button that matches the minimal leaderboard Home/Refresh look */
+.btn-neutral {
+   background: var(--neutral-bg);
+   color: var(--text);
+   border: 1px solid var(--border);
+   padding: 6px 10px;
+   border-radius: 8px;
+}
+.btn-neutral:hover { background: var(--neutral-hover); transform: translateY(-1px); }
+.btn-neutral:focus { outline: 2px solid rgba(59,130,246,0.12); outline-offset: 3px; }
+
+/* small modifier for more compact buttons used in headers */
+.btn-sm { padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; }
+
+/* Card: simple neutral background with thin border, no heavy shadow */
+.card { background: var(--card-bg); border-radius: 10px; border: 1px solid var(--border); }
+
+/* Problem card (question palette) should match theme and not show a white outline */
+.problem-card {
+   background: var(--card-bg);
+   border: 1px solid var(--border);
+   border-radius: 8px;
+}
+.problem-card:focus-within {
+   /* use a subtle neutral ring instead of bright blue */
+   box-shadow: 0 0 0 4px var(--neutral-hover);
+   border-color: var(--border);
+}
+.problem-card a:focus,
+.problem-card button:focus {
+   outline: none;
+   box-shadow: 0 0 0 3px var(--neutral-hover);
+}
+.problem-card a { color: var(--accent); display: inline-block; margin-top: 6px; margin-left: 6px; }
+
+/* Small green pill shown next to solved problems */
+/* solved-pill removed; solved state is represented by .btn-solved on buttons */
+
+/* Ensure inputs show a visible focus ring that adapts to theme */
+input:focus, select:focus, textarea:focus {
+   outline: none;
+   box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+   border-color: rgba(59,130,246,0.6);
 }
 
-button:hover {
-	opacity: 0.98;
-	transform: translateY(-1px);
-}
+/* Modal overlay uses a semi-transparent black that works on both themes */
+.modal-overlay { background: rgba(0,0,0,0.4); }
 
-button:active {
-	transform: translateY(0);
-	opacity: 0.95;
-}
+/* Adjust leader row zebra to use subtle theme-aware tint */
+.leader-rows .leader-row:nth-child(even) { background: rgba(15,23,42,0.02); }
+.leader-row { border-bottom: 1px solid var(--border); }
 
-button:focus {
-	outline: 2px solid rgba(59,130,246,0.35); /* blue-500 at 35% */
-	outline-offset: 2px;
-}
-
-/* Card utility */
-.card {
-	background: white;
-	border-radius: 8px;
-	box-shadow: 0 6px 18px rgba(12, 12, 14, 0.06);
-	border: 1px solid rgba(0,0,0,0.04);
-}
-
-/* Small subtle heading */
-.muted { color: #6b7280; }
-
+.muted { color: var(--muted); }
 .tight { line-height: 1.1 }
 
-.pill {
-	padding: 6px 10px;
-	border-radius: 9999px;
-	background: #f3f4f6;
-	font-size: 0.875rem;
-}
+.pill { padding: 6px 10px; border-radius: 9999px; background: #f8fafc; font-size: 0.875rem; }
 
-/* leaderboard highlight for current user */
-.leader-current { background: linear-gradient(90deg, rgba(99,102,241,0.04), rgba(59,130,246,0.02)); }
-.leader-current { border-left: 3px solid rgba(99,102,241,0.6); }
+/* Subtle highlight for current user row */
+.leader-current { background: rgba(15,23,42,0.03); }
 
-/* problem card hover */
-.problem-card { transition: box-shadow 120ms ease, transform 80ms ease; }
-.problem-card:hover { box-shadow: 0 10px 30px rgba(12,12,14,0.06); transform: translateY(-3px); }
-
-/* Buttons */
-.btn-primary { background: #10b981; color: white; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; }
-.btn-primary:hover { filter: brightness(0.98); transform: translateY(-1px); }
-.btn-outline { background: transparent; color: #111827; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.08); cursor: pointer; }
-.btn-outline:hover { background: #f8fafc; }
-
-/* Leaderboard rows */
-.leader-rows .leader-row:nth-child(even) { background: rgba(0,0,0,0.02); }
-.leader-row { display: grid; grid-template-columns: 48px 1fr 80px; gap: 12px; align-items: center; padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.04); }
-.leader-row .user-name { font-weight: 600 }
-.leader-row .user-id { font-size: 0.75rem; color: #6b7280 }
+/* Leaderboard rows - clean, well-spaced grid */
+.leader-rows .leader-row:nth-child(even) { background: rgba(0,0,0,0.01); }
+.leader-row { display: grid; grid-template-columns: 48px minmax(0,1fr) 80px; gap: 12px; align-items: center; padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+.leader-row .user-name { font-weight: 600; margin-bottom: 4px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; }
+.leader-row .user-id { font-size: 0.75rem; color: #6b7280; margin: 0; }
+.user-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0 }
 .leader-count { font-weight: 700; text-align: right }
+
+/* Small utility spacing helpers commonly used in pages */
+.center { display: flex; justify-content: center; align-items: center }
+.muted-center { color: #6b7280; text-align: center }

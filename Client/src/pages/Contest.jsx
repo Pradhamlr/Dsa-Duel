@@ -185,21 +185,21 @@ export default function Contest(){
   if (selectedSort === 'name-asc') rows.sort((a,b)=> (a.name || a.userId).localeCompare(b.name || b.userId))
   if (selectedSort === 'solved-asc') rows.sort((a,b)=> a.solvedCount - b.solvedCount)
   if (selectedSort === 'solved-desc') rows.sort((a,b)=> b.solvedCount - a.solvedCount || (a.name||a.userId).localeCompare(b.name||b.userId))
-    if (rows.length === 0) return <div className="text-sm text-gray-600">No results yet.</div>
+  if (rows.length === 0) return <div className="text-sm muted">No results yet.</div>
     return (
       <div className="mt-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold">Results</h3>
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             <select value={selectedSort} onChange={e=>setSelectedSort(e.target.value)} className="p-1 border rounded">
               <option value="solved-desc">Solved (desc)</option>
               <option value="solved-asc">Solved (asc)</option>
               <option value="name-asc">Name (A→Z)</option>
             </select>
-            <button onClick={()=>navigate('/')} className="px-3 py-1 bg-gray-100 rounded border">Back to Home</button>
+            <button onClick={()=>navigate('/')} className="btn-secondary">Back to Home</button>
           </div>
         </div>
-        <div className="bg-white border rounded leader-rows">
+        <div className="card leader-rows">
           <div className="grid grid-cols-3 gap-2 p-3 font-medium border-b"> <div>Rank</div><div>User</div><div className="text-right">Solved</div></div>
           {rows.map((r, idx) => (
             <div key={r.userId} className={"leader-row " + (r.userId === userId ? 'leader-current' : '')}>
@@ -226,8 +226,8 @@ export default function Contest(){
               <div className="text-sm text-gray-600">Created by {contest.creatorName ? contest.creatorName : contest.creatorId}</div>
             ) : null}
           </div>
-          <div>
-                  {contest.startTime ? (
+    <div>
+      {contest.startTime ? (
                     <Timer startTime={contest.startTime} duration={contest.duration} onEnd={async ()=>{
                       // mark ended locally and refresh contest from server
                       setEnded(true)
@@ -241,8 +241,8 @@ export default function Contest(){
                       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest ended', type:'info'}}))
                     }} />
                   ) : (
-              <div className="flex items-center gap-2">
-                <input type="number" placeholder={`${Math.floor(contest.duration/60)} min`} min={5} max={480} value={durationOverrideMin} onChange={e=>setDurationOverrideMin(e.target.value)} className="p-2 border rounded" />
+        <div className="flex items-center gap-2">
+          <input type="number" placeholder={`${Math.floor(contest.duration/60)} min`} min={5} max={480} value={durationOverrideMin} onChange={e=>setDurationOverrideMin(e.target.value)} className="p-2 border rounded" />
                 {contest.creatorId && contest.creatorId !== userId ? (
                   <div className="text-sm text-gray-500 italic">Only creator can start</div>
                 ) : (
@@ -251,9 +251,9 @@ export default function Contest(){
                     if (durationOverrideMin) body.duration = Number(durationOverrideMin) * 60
                     body.callerId = userId
                     await startWithBody(body)
-                  }} className="bg-green-600 text-white px-3 py-1 rounded">Start Contest</button>
+                  }} className="btn-primary">Start Contest</button>
                 )}
-                <button onClick={async ()=>{ await navigator.clipboard.writeText(`${window.location.origin}/contest/${id}`); window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) }} className="px-3 py-1 border rounded">Copy Link</button>
+                <button onClick={async ()=>{ await navigator.clipboard.writeText(`${window.location.origin}/contest/${id}`); window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) }} className="btn-neutral">Copy Link</button>
               </div>
             )}
           </div>
@@ -261,15 +261,17 @@ export default function Contest(){
 
         <div className="mb-4 flex items-center gap-3">
           <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Enter display name" className="p-2 border rounded" />
-          <button onClick={saveName} className="px-3 py-1 bg-blue-600 text-white rounded">Save name</button>
+          <button onClick={saveName} className="btn-accent">Save name</button>
           <div className="text-sm text-gray-500">Name shown on leaderboard</div>
         </div>
 
-        <div className="mb-4 flex items-center justify-end">
-          <div>
-            <button onClick={()=>navigate('/')} className="px-3 py-1 bg-gray-100 rounded border">Back to Home</button>
+        {!isOver && (
+          <div className="mb-4 flex items-center justify-end">
+            <div>
+              <button onClick={()=>navigate('/')} className="btn-neutral">Back to Home</button>
+            </div>
           </div>
-        </div>
+        )}
 
         
 
@@ -278,11 +280,11 @@ export default function Contest(){
         ) : (
           <div className="space-y-3">
             {contest.problems.map((p, i) => (
-                <div key={i} className="p-4 border rounded flex justify-between items-center problem-card">
-                  <div>
+                    <div key={i} className="p-4 border rounded flex justify-between items-center problem-card">
+                  <div className="flex-1 min-w-0">
                     <div className="font-medium">{i+1}. {p.title}</div>
-                    <div className="text-sm text-gray-500">{problemTypes[i]}</div>
-                    <a href={`https://leetcode.com/problems/${p.slug}/`} target="_blank" rel="noreferrer" className="text-blue-500 text-sm">Open on LeetCode</a>
+                        <div className="text-sm muted">{problemTypes[i]}</div>
+                    <a href={`https://leetcode.com/problems/${p.slug}/`} target="_blank" rel="noreferrer" style={{color:'var(--accent)'}} className="text-sm">Open on LeetCode</a>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Only allow marking after the contest has started */}
@@ -290,9 +292,9 @@ export default function Contest(){
                       (() => {
                         const solved = contest.results && contest.results[userId] && contest.results[userId].solved && contest.results[userId].solved[i]
                         if (solved) {
-                          return <button onClick={()=>mark(i, false)} className="btn-primary">Solved</button>
+                          return <button onClick={()=>mark(i, false)} className="btn-solved">Solved</button>
                         }
-                        return <button onClick={()=>mark(i, true)} className="btn-outline">Mark Solved</button>
+                        return <button onClick={()=>mark(i, true)} className="btn-accent btn-sm">Mark Solved</button>
                       })()
                     ) : (
                       <div className="text-sm text-gray-500 italic">Contest not started</div>

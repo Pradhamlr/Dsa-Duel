@@ -5,7 +5,7 @@ export default function ApiBadge(){
   const isLocal = api.includes('localhost') || api.includes('127.0.0.1')
   return (
     <div style={{position:'fixed', left:12, top:12, zIndex:60}}>
-      <div className={`text-xs px-2 py-1 rounded ${isLocal ? 'bg-yellow-400 text-black' : 'bg-green-600 text-white'}`}>
+      <div style={{fontSize:12, padding: '6px 8px', borderRadius:8, background: isLocal ? 'var(--warning)' : 'var(--primary)', color: isLocal ? '#111' : '#fff'}}>
         API: {isLocal ? `${api} (local)` : api}
       </div>
     </div>

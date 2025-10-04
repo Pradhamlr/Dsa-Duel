@@ -301,5 +301,47 @@ app.post('/user', async (req, res) => {
   }
 })
 
+// Overall leaderboard: aggregate total solved counts per user across all contests
+app.get('/leaderboard', async (req, res) => {
+  try {
+    // Use a raw SQL aggregation for reliability across Prisma versions
+    // Count all Result rows per user (consider each result row as a solved marker)
+    const raw = await prisma.$queryRaw`
+      SELECT "userId", COUNT(*) AS "solvedCount"
+      FROM "Result"
+      GROUP BY "userId"
+      ORDER BY "solvedCount" DESC
+    `
+
+    // raw is an array of { userId, solvedCount }
+    console.log('leaderboard raw rows:', raw)
+
+    const userIds = raw.map(r => r.userId)
+    const users = userIds.length ? await prisma.user.findMany({ where: { id: { in: userIds } } }) : []
+    const nameMap = users.reduce((acc,u)=>{ acc[u.id]=u.name||null; return acc }, {})
+
+    const rows = raw.map(r=>({ userId: r.userId, name: nameMap[r.userId]||null, solvedCount: Number(r.solvedCount) }))
+
+    res.json({ ok: true, rows })
+  } catch (err) {
+    console.error('leaderboard error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+})
+
+// Debug endpoint: list recent Result rows for inspection
+app.get('/debug/results', async (req, res) => {
+  if (process.env.NODE_ENV === 'production' && process.env.DEBUG_RESULTS !== 'true') {
+    return res.status(403).json({ error: 'forbidden' })
+  }
+  try {
+    const rows = await prisma.result.findMany({ orderBy: { id: 'desc' }, take: 100 })
+    res.json({ ok: true, rows })
+  } catch (err) {
+    console.error('debug results error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+})
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log('Backend listening on', PORT));
