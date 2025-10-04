@@ -12,12 +12,8 @@ import fetch from 'node-fetch';
 import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client'
 
-let prisma
 function getPrisma() {
-  if (!prisma) {
-    prisma = new PrismaClient()
-  }
-  return prisma
+  return new PrismaClient()
 }
 
 const app = express();
