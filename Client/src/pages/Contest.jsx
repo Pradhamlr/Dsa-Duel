@@ -9,7 +9,18 @@ const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 export default function Contest(){
   const { id } = useParams()
   const [contest, setContest] = useState(null)
-  const [userId] = useState(() => Math.random().toString(36).slice(2,9))
+  const [userId] = useState(() => {
+    try {
+      const existing = localStorage.getItem('duel_userId')
+      if (existing) return existing
+      const id = Math.random().toString(36).slice(2,9)
+      localStorage.setItem('duel_userId', id)
+      return id
+    } catch (err) {
+      // localStorage may not be available in some environments; fall back
+      return Math.random().toString(36).slice(2,9)
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [durationOverrideMin, setDurationOverrideMin] = useState('')
 

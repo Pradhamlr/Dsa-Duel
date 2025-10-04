@@ -102,6 +102,8 @@ app.post('/contest/:id/mark', (req, res) => {
   if (!c) return res.status(404).json({ error: 'not found' });
   const { userId, problemIndex, solved } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId required' });
+  // Prevent marking before contest has started
+  if (!c.startTime) return res.status(400).json({ error: 'contest not started' });
   c.results[userId] = c.results[userId] || { solved: {} };
   c.results[userId].solved[problemIndex] = !!solved;
   // return updated contest so clients can refresh local state
