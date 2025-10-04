@@ -83,14 +83,14 @@ export default function Leaderboard(){
           ) : (
             <div>
               {/* Header */}
-              <div className="grid grid-cols-3 gap-4 p-4 font-semibold border-b bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20">
+              <div style={{display: 'grid', gridTemplateColumns: '60px 1fr 120px'}} className="gap-4 p-4 font-semibold border-b bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20">
                 <div>Rank</div>
-                <div>Champion</div>
+                <div>Participant</div>
                 <div className="text-right">Total Solved</div>
               </div>
               
               {/* Leaderboard Rows */}
-              <div className="leader-rows">
+              <div>
                 {rows.map((r, idx) => {
                   const isTopThree = idx < 3
                   const isCurrentUser = r.userId === (localStorage.getItem('duel_userId') || '')
@@ -99,39 +99,35 @@ export default function Leaderboard(){
                   return (
                     <div 
                       key={r.userId} 
-                      className={`leader-row animate-slideIn ${
+                      style={{display: 'grid', gridTemplateColumns: '60px 1fr 120px', animationDelay: `${0.05 * idx}s`}}
+                      className={`gap-4 p-4 border-b last:border-b-0 animate-slideIn ${
                         isCurrentUser ? 'leader-current' : ''
                       } ${isTopThree ? 'font-semibold' : ''}`}
-                      style={{animationDelay: `${0.05 * idx}s`}}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className={`text-lg ${isTopThree ? 'text-2xl' : ''}`}>
+                      <div className="flex items-center">
+                        <span className={`${isTopThree ? 'text-xl' : 'text-lg'}`}>
                           {rankEmoji}
                         </span>
                       </div>
                       
-                      <div className="user-col">
-                        <div className="user-name flex items-center gap-2">
+                      <div>
+                        <div className="font-medium flex items-center gap-2">
                           {r.name || r.userId}
                           {isCurrentUser && (
                             <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded-full">
                               You
                             </span>
                           )}
-                          {isTopThree && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-2 py-1 rounded-full">
-                              Top {idx + 1}
-                            </span>
-                          )}
+
                         </div>
-                        {r.name && <div className="user-id">{r.userId}</div>}
+                        {r.name && <div className="text-xs text-muted">{r.userId}</div>}
                       </div>
                       
-                      <div className="leader-count flex items-center justify-end gap-2">
-                        <span className={`font-bold ${isTopThree ? 'text-2xl' : 'text-xl'}`}>
+                      <div className="text-right">
+                        <span className={`font-bold ${isTopThree ? 'text-xl' : 'text-lg'}`}>
                           {r.solvedCount}
                         </span>
-                        <span className="text-sm text-muted">problems</span>
+                        <span className="text-sm text-muted ml-1">problems</span>
                       </div>
                     </div>
                   )

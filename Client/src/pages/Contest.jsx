@@ -209,7 +209,6 @@ export default function Contest(){
     if (rows.length === 0) {
       return (
         <div className="card p-8 text-center">
-          <div className="text-4xl mb-4">🏆</div>
           <div className="text-lg font-medium mb-2">No results yet</div>
           <div className="text-sm text-muted">Results will appear here once participants start solving problems</div>
         </div>
@@ -218,54 +217,49 @@ export default function Contest(){
     
     return (
       <div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            🏆 Final Results
-          </h2>
-          <div className="flex items-center gap-3">
-            <select 
-              value={selectedSort} 
-              onChange={e=>setSelectedSort(e.target.value)} 
-              className="btn-sm"
-            >
-              <option value="solved-desc">🔥 Most Solved</option>
-              <option value="solved-asc">🔼 Least Solved</option>
-              <option value="name-asc">🔤 Name A→Z</option>
-            </select>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Final Results</h2>
+          <select 
+            value={selectedSort} 
+            onChange={e=>setSelectedSort(e.target.value)} 
+            className="text-sm border rounded px-2 py-1"
+          >
+            <option value="solved-desc">Most Solved</option>
+            <option value="solved-asc">Least Solved</option>
+            <option value="name-asc">Name A→Z</option>
+          </select>
         </div>
         
-        <div className="card overflow-hidden">
-          <div className="grid grid-cols-3 gap-4 p-4 font-semibold border-b bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20">
-            <div className="flex items-center gap-2">🏅 Rank</div>
-            <div className="flex items-center gap-2">👤 Participant</div>
-            <div className="text-right flex items-center justify-end gap-2">✓ Solved</div>
+        <div className="card">
+          <div style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}} className="gap-4 p-3 font-medium border-b text-sm">
+            <div>Rank</div>
+            <div>Participant</div>
+            <div className="text-right">Solved</div>
           </div>
           
           {rows.map((r, idx) => {
-            const isWinner = idx === 0 && r.solvedCount > 0
             const isCurrentUser = r.userId === userId
             
             return (
               <div 
                 key={r.userId} 
-                className={`leader-row ${isCurrentUser ? 'leader-current' : ''} ${isWinner ? 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20' : ''}`}
+                style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}}
+                className={`gap-4 p-3 border-b last:border-b-0 ${isCurrentUser ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold">
+                <div className="flex items-center">
+                  <span className="font-medium">
                     {idx === 0 && r.solvedCount > 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
                   </span>
                 </div>
-                <div className="user-col">
-                  <div className="user-name flex items-center gap-2">
+                <div>
+                  <div className="font-medium">
                     {r.name || r.userId}
-                    {isCurrentUser && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">You</span>}
+                    {isCurrentUser && <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">You</span>}
                   </div>
-                  {r.name && <div className="user-id">{r.userId}</div>}
+                  {r.name && <div className="text-xs text-muted">{r.userId}</div>}
                 </div>
-                <div className="leader-count flex items-center justify-end gap-2">
-                  <span className="text-2xl font-bold">{r.solvedCount}</span>
-                  <span className="text-sm text-muted">/ {contest.problems?.length || 0}</span>
+                <div className="text-right font-semibold">
+                  {r.solvedCount} / {contest.problems?.length || 0}
                 </div>
               </div>
             )
