@@ -12,7 +12,13 @@ import fetch from 'node-fetch';
 import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+let prisma
+function getPrisma() {
+  if (!prisma) {
+    prisma = new PrismaClient()
+  }
+  return prisma
+}
 
 const app = express();
 const allowedOrigins = [
@@ -123,13 +129,13 @@ app.post('/create-contest', async (req, res) => {
       creatorId = req.body.creatorId
       creatorName = req.body.creatorName || null
       try {
-        await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
+        await getPrisma().user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
       } catch (e) {
         console.error('User upsert error:', e)
       }
     }
 
-    const created = await prisma.contest.create({
+    const created = await getPrisma().contest.create({
       data: {
         id,
         numProblems: Number(numProblems),
@@ -150,11 +156,11 @@ app.post('/create-contest', async (req, res) => {
 app.get('/contest/:id', async (req, res) => {
   try {
     const id = req.params.id
-    const c = await prisma.contest.findUnique({ where: { id } })
+    const c = await getPrisma().contest.findUnique({ where: { id } })
     if (!c) return res.status(404).json({ error: 'not found' });
 
     // load results for this contest
-    const rows = await prisma.result.findMany({ where: { contestId: id } })
+    const rows = await getPrisma().result.findMany({ where: { contestId: id } })
     const results = {}
     const userIds = new Set()
     for (const r of rows) {
@@ -166,7 +172,7 @@ app.get('/contest/:id', async (req, res) => {
     // fetch user names for participants (if any)
     let nameMap = {}
     if (userIds.size > 0) {
-      const users = await prisma.user.findMany({ where: { id: { in: Array.from(userIds) } } })
+      const users = await getPrisma().user.findMany({ where: { id: { in: Array.from(userIds) } } })
       nameMap = users.reduce((acc, u) => { acc[u.id] = u.name || null; return acc }, {})
       for (const uid of Object.keys(results)) {
         results[uid].name = nameMap[uid] || null
@@ -176,7 +182,7 @@ app.get('/contest/:id', async (req, res) => {
     // include creator info if present
     let creatorName = null
     if (c.creatorId) {
-      const user = await prisma.user.findUnique({ where: { id: c.creatorId } })
+      const user = await getPrisma().user.findUnique({ where: { id: c.creatorId } })
       creatorName = user ? user.name : null
     }
 
@@ -199,7 +205,7 @@ app.get('/contest/:id', async (req, res) => {
 app.post('/contest/:id/start', async (req, res) => {
   try {
     const id = req.params.id
-    const contest = await prisma.contest.findUnique({ where: { id } })
+    const contest = await getPrisma().contest.findUnique({ where: { id } })
     if (!contest) return res.status(404).json({ error: 'not found' })
     if (contest.startTime) return res.status(400).json({ error: 'already started' })
 
@@ -213,7 +219,7 @@ app.post('/contest/:id/start', async (req, res) => {
     const update = { startTime: new Date() }
     if (duration && Number.isFinite(duration)) update.durationSeconds = Number(duration)
 
-    const updated = await prisma.contest.update({ where: { id }, data: update })
+    const updated = await getPrisma().contest.update({ where: { id }, data: update })
     res.json({ startedAt: updated.startTime ? updated.startTime.getTime() : Date.now(), duration: updated.durationSeconds })
   } catch (err) {
     console.error(err)
@@ -224,7 +230,7 @@ app.post('/contest/:id/start', async (req, res) => {
 app.get('/contest/:id/status', async (req, res) => {
   try {
     const id = req.params.id
-    const c = await prisma.contest.findUnique({ where: { id } })
+    const c = await getPrisma().contest.findUnique({ where: { id } })
     if (!c) return res.status(404).json({ error: 'not found' })
     res.json({ startTime: c.startTime ? c.startTime.getTime() : null, duration: c.durationSeconds })
   } catch (err) {
@@ -240,7 +246,7 @@ app.post('/contest/:id/mark', async (req, res) => {
     const { userId, problemIndex, solved, displayName } = req.body
     if (!userId) return res.status(400).json({ error: 'userId required' })
 
-    const contest = await prisma.contest.findUnique({ where: { id } })
+    const contest = await getPrisma().contest.findUnique({ where: { id } })
     if (!contest) return res.status(404).json({ error: 'not found' })
     if (!contest.startTime) return res.status(400).json({ error: 'contest not started' })
 
@@ -248,7 +254,7 @@ app.post('/contest/:id/mark', async (req, res) => {
       // Ensure the user row exists (prevents FK violation)
       // If client supplied a displayName, persist it
       try {
-        await prisma.user.upsert({
+        await getPrisma().user.upsert({
           where: { id: userId },
           update: { name: displayName || undefined },
           create: { id: userId, name: displayName || undefined }
@@ -258,7 +264,7 @@ app.post('/contest/:id/mark', async (req, res) => {
       }
 
       // upsert result
-      await prisma.result.upsert({
+      await getPrisma().result.upsert({
         where: {
           contestId_userId_problemIndex: {
             contestId: id,
@@ -271,11 +277,11 @@ app.post('/contest/:id/mark', async (req, res) => {
       })
     } else {
       // unmark (delete row)
-      await prisma.result.deleteMany({ where: { contestId: id, userId, problemIndex: Number(problemIndex) } })
+      await getPrisma().result.deleteMany({ where: { contestId: id, userId, problemIndex: Number(problemIndex) } })
     }
 
     // return updated contest shape
-    const rows = await prisma.result.findMany({ where: { contestId: id } })
+    const rows = await getPrisma().result.findMany({ where: { contestId: id } })
     const results = {}
     for (const r of rows) {
       results[r.userId] = results[r.userId] || { solved: {} }
@@ -302,7 +308,7 @@ app.post('/user', async (req, res) => {
     const { userId, name } = req.body || {}
     if (!userId) return res.status(400).json({ error: 'userId required' })
     try {
-      await prisma.user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
+      await getPrisma().user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
     } catch (e) {
       console.error('User upsert error:', e)
     }
@@ -313,30 +319,24 @@ app.post('/user', async (req, res) => {
   }
 })
 
-// Overall leaderboard: aggregate total solved counts per user across all contests
+// Overall leaderboard: simple fallback to avoid prepared statement issues
 app.get('/leaderboard', async (req, res) => {
   try {
-    // Use Prisma groupBy instead of raw SQL to avoid prepared statement conflicts
-    const grouped = await prisma.result.groupBy({
-      by: ['userId'],
-      _count: {
-        userId: true
-      },
-      orderBy: {
-        _count: {
-          userId: 'desc'
-        }
-      }
-    })
-
-    console.log('leaderboard grouped rows:', grouped)
-
-    const userIds = grouped.map(r => r.userId)
-    const users = userIds.length ? await prisma.user.findMany({ where: { id: { in: userIds } } }) : []
+    const results = await getPrisma().result.findMany()
+    const userCounts = {}
+    
+    for (const result of results) {
+      userCounts[result.userId] = (userCounts[result.userId] || 0) + 1
+    }
+    
+    const userIds = Object.keys(userCounts)
+    const users = userIds.length ? await getPrisma().user.findMany({ where: { id: { in: userIds } } }) : []
     const nameMap = users.reduce((acc,u)=>{ acc[u.id]=u.name||null; return acc }, {})
-
-    const rows = grouped.map(r=>({ userId: r.userId, name: nameMap[r.userId]||null, solvedCount: r._count.userId }))
-
+    
+    const rows = Object.entries(userCounts)
+      .map(([userId, count]) => ({ userId, name: nameMap[userId]||null, solvedCount: count }))
+      .sort((a,b) => b.solvedCount - a.solvedCount)
+    
     res.json({ ok: true, rows })
   } catch (err) {
     console.error('leaderboard error', err)
@@ -350,7 +350,7 @@ app.get('/debug/results', async (req, res) => {
     return res.status(403).json({ error: 'forbidden' })
   }
   try {
-    const rows = await prisma.result.findMany({ orderBy: { id: 'desc' }, take: 100 })
+    const rows = await getPrisma().result.findMany({ orderBy: { id: 'desc' }, take: 100 })
     res.json({ ok: true, rows })
   } catch (err) {
     console.error('debug results error', err)
