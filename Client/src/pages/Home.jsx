@@ -76,73 +76,171 @@ export default function Home(){
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-6">
-  <div className="w-full max-w-md card p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
-          <h1 className="text-xl sm:text-2xl font-bold">Create Contest</h1>
-          <div className="ml-0 sm:ml-4 flex gap-2">
-            <button onClick={()=>setDark(d=>!d)} className="btn-neutral btn-sm" aria-pressed={dark}>{dark ? 'Dark' : 'Light'}</button>
-            <button onClick={()=>navigate('/leaderboard')} className="btn-secondary btn-sm">Leaderboard</button>
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
+      <div className="w-full max-w-lg">
+        {/* Header Card */}
+        <div className="card p-6 mb-6 text-center animate-slideIn">
+          <div className="mb-4">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent mb-2">
+              DSA Duel
+            </h1>
+            <p className="text-muted text-sm">Create competitive coding contests with friends</p>
+          </div>
+          <div className="flex justify-center gap-3">
+            <button 
+              onClick={()=>setDark(d=>!d)} 
+              className="btn-neutral btn-sm" 
+              aria-pressed={dark}
+            >
+              {dark ? 'Dark' : 'Light'}
+            </button>
+            <button 
+              onClick={()=>navigate('/leaderboard')} 
+              className="btn-secondary btn-sm"
+            >
+              Leaderboard
+            </button>
           </div>
         </div>
-        <label className="block mb-2">Number of problems (3-5)</label>
-        <input type="number" min={3} max={5} value={num} onChange={e=>setNum(e.target.value)} className="w-full p-2 border rounded mb-3" />
 
-        <label className="block mb-2">Difficulty</label>
-        <select value={difficulty} onChange={e=>setDifficulty(e.target.value)} className="w-full p-2 border rounded mb-4">
-          <option value="mixed">Mixed (Easy + Medium)</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-        </select>
-        <label className="block mb-2">Topic (optional)</label>
-        <select value={topic} onChange={e=>setTopic(e.target.value)} className="w-full p-2 border rounded mb-4">
-          <option value="All">Any</option>
-          <option value="Array">Array</option>
-          <option value="Linked List">Linked List</option>
-          <option value="Tree">Tree</option>
-          <option value="Graph">Graph</option>
-          <option value="String">String</option>
-          <option value="DP">DP</option>
-          <option value="Stack/Queue">Stack/Queue</option>
-          <option value="Matrix">Matrix</option>
-          <option value="Hash / Map">Hash / Map</option>
-          <option value="Binary Search">Binary Search</option>
-          <option value="Two Pointers">Two Pointers</option>
-          <option value="Other">Other</option>
-        </select>
-        <label className="block mb-2">Duration (minutes)</label>
-        <input type="number" min={10} max={240} value={durationMin} onChange={e=>setDurationMin(e.target.value)} className="w-full p-2 border rounded mb-3" />
+        {/* Main Form Card */}
+        <div className="card p-6 animate-slideIn" style={{animationDelay: '0.1s'}}>
+          <h2 className="text-xl font-semibold mb-6 text-center">Contest Configuration</h2>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Number of problems (3-5)
+              </label>
+              <input 
+                type="number" 
+                min={3} 
+                max={5} 
+                value={num} 
+                onChange={e=>setNum(e.target.value)} 
+                className="w-full" 
+              />
+            </div>
 
-    <label className="block mb-2">Your name</label>
-  <input type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your display name" className="w-full p-2 border rounded mb-3" />
-  {!displayName && <div className="text-sm text-red-600 mb-3">Please enter your name — it will be shown on the leaderboard.</div>}
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Difficulty Level
+              </label>
+              <select value={difficulty} onChange={e=>setDifficulty(e.target.value)} className="w-full">
+                <option value="mixed">Mixed (Easy + Medium)</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Topic (optional)
+              </label>
+              <select value={topic} onChange={e=>setTopic(e.target.value)} className="w-full">
+                <option value="All">Any Topic</option>
+                <option value="Array">Array</option>
+                <option value="Linked List">Linked List</option>
+                <option value="Tree">Tree</option>
+                <option value="Graph">Graph</option>
+                <option value="String">String</option>
+                <option value="DP">Dynamic Programming</option>
+                <option value="Stack/Queue">Stack/Queue</option>
+                <option value="Matrix">Matrix</option>
+                <option value="Hash / Map">Hash / Map</option>
+                <option value="Binary Search">Binary Search</option>
+                <option value="Two Pointers">Two Pointers</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Duration (minutes)
+              </label>
+              <input 
+                type="number" 
+                min={10} 
+                max={240} 
+                value={durationMin} 
+                onChange={e=>setDurationMin(e.target.value)} 
+                className="w-full" 
+              />
+            </div>
 
-        <div className="flex justify-center">
-          <button onClick={create} disabled={loading || !displayName} className="w-full md:w-auto btn-accent wide p-3 rounded-lg">
-            {loading ? 'Creating contest...' : 'Create & Get Link'}
-          </button>
-        </div>
-
-
-        {createdLink && (
-          <div className="mt-3 p-3 card">
-            <div className="text-sm mb-2">Contest created — shareable link:</div>
-            <div className="flex gap-2">
-              <input className="flex-1 p-2 border rounded" value={createdLink} readOnly />
-              <button onClick={async ()=>{ await navigator.clipboard.writeText(createdLink); window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) }} className="btn-secondary">Copy</button>
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Your Display Name
+              </label>
+              <input 
+                type="text" 
+                value={displayName} 
+                onChange={e=>setDisplayName(e.target.value)} 
+                placeholder="Enter your display name" 
+                className="w-full" 
+              />
+              {!displayName && (
+                <div className="text-sm text-red-500 mt-2">
+                  Please enter your name — it will be shown on the leaderboard
+                </div>
+              )}
             </div>
           </div>
-        )}
+
+          <div className="mt-8">
+            <button 
+              onClick={create} 
+              disabled={loading || !displayName} 
+              className="w-full btn-accent wide flex items-center justify-center gap-3 text-lg font-semibold py-4"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  Creating Contest...
+                </>
+              ) : (
+                'Create & Get Link'
+              )}
+            </button>
+          </div>
+
+
+          {createdLink && (
+            <div className="mt-6 p-4 card animate-slideIn" style={{background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)'}}>
+              <div className="text-sm font-medium mb-3">
+                Contest created successfully!
+              </div>
+              <div className="flex gap-3">
+                <input 
+                  className="flex-1 text-sm" 
+                  value={createdLink} 
+                  readOnly 
+                />
+                <button 
+                  onClick={async ()=>{ 
+                    await navigator.clipboard.writeText(createdLink); 
+                    window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) 
+                  }} 
+                  className="btn-secondary"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        
         <Toast />
         {loading && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="card p-6 flex flex-col items-center gap-3">
-              <svg className="animate-spin h-10 w-10" style={{color:'var(--accent)'}} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-              </svg>
-              <div className="text-lg font-medium">Preparing your contest…</div>
-              <div className="text-sm muted">This may take a few seconds ANNA.</div>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+            <div className="card p-8 flex flex-col items-center gap-4 max-w-sm mx-4">
+              <div className="relative">
+                <div className="animate-spin h-12 w-12 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-6 w-6 bg-blue-600 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-semibold mb-1">Preparing your contest</div>
+                <div className="text-sm text-muted">Selecting the best problems for you...</div>
+              </div>
             </div>
           </div>
         )}

@@ -142,8 +142,30 @@ export default function Contest(){
     }
   }
 
-  if (loading) return <div className="p-6">Loading...</div>
-  if (!contest) return <div className="p-6">Contest not found</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card p-8 flex flex-col items-center gap-4">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
+          <div className="text-lg font-medium">Loading contest...</div>
+        </div>
+      </div>
+    )
+  }
+  
+  if (!contest) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card p-8 text-center">
+          <div className="text-xl font-semibold mb-2">Contest not found</div>
+          <div className="text-muted mb-4">The contest you're looking for doesn't exist or has been removed.</div>
+          <button onClick={()=>navigate('/')} className="btn-primary">
+            Go Home
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // helper: is contest over according to server data
   const nowMs = Date.now()
@@ -174,62 +196,110 @@ export default function Contest(){
     const results = contest.results || {}
     for (const uid of Object.keys(results)){
       const solvedMap = results[uid].solved || {}
-        // count all solved problems
-        const solvedCount = Object.keys(solvedMap).filter(k => solvedMap[k]).length
+      const solvedCount = Object.keys(solvedMap).filter(k => solvedMap[k]).length
       const name = results[uid].name || null
       rows.push({ userId: uid, name, solvedCount })
     }
-  // default sort: solved desc
-  rows.sort((a,b)=> b.solvedCount - a.solvedCount)
-  // apply selectedSort
-  if (selectedSort === 'name-asc') rows.sort((a,b)=> (a.name || a.userId).localeCompare(b.name || b.userId))
-  if (selectedSort === 'solved-asc') rows.sort((a,b)=> a.solvedCount - b.solvedCount)
-  if (selectedSort === 'solved-desc') rows.sort((a,b)=> b.solvedCount - a.solvedCount || (a.name||a.userId).localeCompare(b.name||b.userId))
-  if (rows.length === 0) return <div className="text-sm muted">No results yet.</div>
+    
+    rows.sort((a,b)=> b.solvedCount - a.solvedCount)
+    if (selectedSort === 'name-asc') rows.sort((a,b)=> (a.name || a.userId).localeCompare(b.name || b.userId))
+    if (selectedSort === 'solved-asc') rows.sort((a,b)=> a.solvedCount - b.solvedCount)
+    if (selectedSort === 'solved-desc') rows.sort((a,b)=> b.solvedCount - a.solvedCount || (a.name||a.userId).localeCompare(b.name||b.userId))
+    
+    if (rows.length === 0) {
+      return (
+        <div className="card p-8 text-center">
+          <div className="text-4xl mb-4">🏆</div>
+          <div className="text-lg font-medium mb-2">No results yet</div>
+          <div className="text-sm text-muted">Results will appear here once participants start solving problems</div>
+        </div>
+      )
+    }
+    
     return (
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold">Results</h3>
-            <div className="flex items-center gap-2">
-            <select value={selectedSort} onChange={e=>setSelectedSort(e.target.value)} className="p-1 border rounded">
-              <option value="solved-desc">Solved (desc)</option>
-              <option value="solved-asc">Solved (asc)</option>
-              <option value="name-asc">Name (A→Z)</option>
+      <div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            🏆 Final Results
+          </h2>
+          <div className="flex items-center gap-3">
+            <select 
+              value={selectedSort} 
+              onChange={e=>setSelectedSort(e.target.value)} 
+              className="btn-sm"
+            >
+              <option value="solved-desc">🔥 Most Solved</option>
+              <option value="solved-asc">🔼 Least Solved</option>
+              <option value="name-asc">🔤 Name A→Z</option>
             </select>
-            <button onClick={()=>navigate('/')} className="btn-secondary">Back to Home</button>
           </div>
         </div>
-        <div className="card leader-rows">
-          <div className="grid grid-cols-3 gap-2 p-3 font-medium border-b"> <div>Rank</div><div>User</div><div className="text-right">Solved</div></div>
-          {rows.map((r, idx) => (
-            <div key={r.userId} className={"leader-row " + (r.userId === userId ? 'leader-current' : '')}>
-              <div className="text-sm">{idx+1}</div>
-              <div>
-                <div className="user-name">{r.name || r.userId}</div>
-                <div className="user-id">{r.name ? r.userId : ''}</div>
+        
+        <div className="card overflow-hidden">
+          <div className="grid grid-cols-3 gap-4 p-4 font-semibold border-b bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20">
+            <div className="flex items-center gap-2">🏅 Rank</div>
+            <div className="flex items-center gap-2">👤 Participant</div>
+            <div className="text-right flex items-center justify-end gap-2">✓ Solved</div>
+          </div>
+          
+          {rows.map((r, idx) => {
+            const isWinner = idx === 0 && r.solvedCount > 0
+            const isCurrentUser = r.userId === userId
+            
+            return (
+              <div 
+                key={r.userId} 
+                className={`leader-row ${isCurrentUser ? 'leader-current' : ''} ${isWinner ? 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20' : ''}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold">
+                    {idx === 0 && r.solvedCount > 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
+                  </span>
+                </div>
+                <div className="user-col">
+                  <div className="user-name flex items-center gap-2">
+                    {r.name || r.userId}
+                    {isCurrentUser && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">You</span>}
+                  </div>
+                  {r.name && <div className="user-id">{r.userId}</div>}
+                </div>
+                <div className="leader-count flex items-center justify-end gap-2">
+                  <span className="text-2xl font-bold">{r.solvedCount}</span>
+                  <span className="text-sm text-muted">/ {contest.problems?.length || 0}</span>
+                </div>
               </div>
-              <div className="leader-count">{r.solvedCount}</div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen p-2 sm:p-6 flex justify-center">
-      <div className="w-full max-w-3xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg sm:text-xl font-semibold">Contest {id}</h2>
-            {contest.creatorName || contest.creatorId ? (
-              <div className="text-sm muted">Created by {contest.creatorName ? contest.creatorName : contest.creatorId}</div>
-            ) : null}
-          </div>
-    <div>
-      {contest.startTime ? (
+    <div className="min-h-screen p-4 sm:p-6 flex justify-center animate-fadeIn">
+      <div className="w-full max-w-4xl">
+        {/* Header Card */}
+        <div className="card p-6 mb-6 animate-slideIn">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
+                  Contest {id}
+                </h1>
+                
+              </div>
+              {contest.creatorName || contest.creatorId ? (
+                <div className="text-sm text-muted">
+                  Created by <span className="font-medium">{contest.creatorName || contest.creatorId}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              {contest.startTime ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Time Remaining:</span>
                     <Timer startTime={contest.startTime} duration={contest.duration} onEnd={async ()=>{
-                      // mark ended locally and refresh contest from server
                       setEnded(true)
                       try {
                         const r = await fetch(`${API}/contest/${id}`)
@@ -240,68 +310,184 @@ export default function Contest(){
                       } catch (e) { /* no-op */ }
                       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest ended', type:'info'}}))
                     }} />
+                  </div>
+                  <button 
+                    onClick={async ()=>{ 
+                      await navigator.clipboard.writeText(`${window.location.origin}/contest/${id}`); 
+                      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) 
+                    }} 
+                    className="btn-neutral btn-sm"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <input 
+                    type="number" 
+                    placeholder={`${Math.floor(contest.duration/60)} min`} 
+                    min={5} 
+                    max={480} 
+                    value={durationOverrideMin} 
+                    onChange={e=>setDurationOverrideMin(e.target.value)} 
+                    className="w-24" 
+                    style={{appearance: 'textfield'}}
+                  />
+                  {contest.creatorId && contest.creatorId !== userId ? (
+                    <div className="text-sm text-muted italic">
+                      Only creator can start
+                    </div>
                   ) : (
-        <div className="flex items-center gap-2">
-          <input type="number" placeholder={`${Math.floor(contest.duration/60)} min`} min={5} max={480} value={durationOverrideMin} onChange={e=>setDurationOverrideMin(e.target.value)} className="p-2 border rounded" />
-                {contest.creatorId && contest.creatorId !== userId ? (
-                  <div className="text-sm text-gray-500 italic">Only creator can start</div>
-                ) : (
-                  <button onClick={async ()=>{
-                    const body = {}
-                    if (durationOverrideMin) body.duration = Number(durationOverrideMin) * 60
-                    body.callerId = userId
-                    await startWithBody(body)
-                  }} className="btn-primary">Start Contest</button>
-                )}
-                <button onClick={async ()=>{ await navigator.clipboard.writeText(`${window.location.origin}/contest/${id}`); window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) }} className="btn-neutral">Copy Link</button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Enter display name" className="p-2 border rounded w-full sm:w-auto" />
-          <button onClick={saveName} className="btn-accent btn-sm">Save name</button>
-          <div className="text-sm muted">Name shown on leaderboard</div>
-        </div>
-
-        {!isOver && (
-          <div className="mb-4 flex items-center justify-end">
-            <div>
-              <button onClick={()=>navigate('/')} className="btn-neutral">Back to Home</button>
+                    <button 
+                      onClick={async ()=>{
+                        const body = {}
+                        if (durationOverrideMin) body.duration = Number(durationOverrideMin) * 60
+                        body.callerId = userId
+                        await startWithBody(body)
+                      }} 
+                      className="btn-primary"
+                    >
+                      Start Contest
+                    </button>
+                  )}
+                  <button 
+                    onClick={async ()=>{ 
+                      await navigator.clipboard.writeText(`${window.location.origin}/contest/${id}`); 
+                      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}})) 
+                    }} 
+                    className="btn-neutral btn-sm"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* User Info Card */}
+        <div className="card p-4 mb-6 animate-slideIn" style={{animationDelay: '0.1s'}}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-2">
+                Your Display Name
+              </label>
+              <input 
+                value={displayName} 
+                onChange={e=>setDisplayName(e.target.value)} 
+                placeholder="Enter your display name" 
+                className="w-full sm:w-64" 
+              />
+            </div>
+            <button 
+              onClick={saveName} 
+              className="btn-accent btn-sm"
+            >
+              Save Name
+            </button>
+            
+          </div>
+        </div>
+
+
 
         
 
         {isOver ? (
-          renderLeaderboard()
+          <div className="animate-slideIn" style={{animationDelay: '0.2s'}}>
+            {renderLeaderboard()}
+            <div className="mt-6 text-center">
+              <button 
+                onClick={()=>navigate('/')} 
+                className="btn-secondary mx-auto"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {contest.problems.map((p, i) => (
-                    <div key={i} className="p-3 sm:p-4 border rounded flex flex-col sm:flex-row sm:justify-between items-start sm:items-center problem-card">
-                  <div className="flex-1 min-w-0 mb-3 sm:mb-0">
-                    <div className="font-medium">{i+1}. {p.title}</div>
-                        <div className="text-sm muted">{problemTypes[i]}</div>
-                    <a href={`https://leetcode.com/problems/${p.slug}/`} target="_blank" rel="noreferrer" className="text-sm" style={{color:'var(--accent)'}}>Open on LeetCode</a>
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">
+                Problems
+              </h2>
+              <button 
+                onClick={()=>navigate('/')} 
+                className="btn-neutral btn-sm flex items-center gap-2"
+              >
+                🏠 Home
+              </button>
+            </div>
+            
+            <div className="grid gap-4">
+              {contest.problems.map((p, i) => {
+                const solved = contest.results && contest.results[userId] && contest.results[userId].solved && contest.results[userId].solved[i]
+                const difficultyColor = p.difficulty === 'Easy' ? 'text-green-500' : p.difficulty === 'Medium' ? 'text-yellow-500' : 'text-red-500'
+                const difficultyEmoji = p.difficulty === 'Easy' ? '🟢' : p.difficulty === 'Medium' ? '🟡' : '🔴'
+                
+                return (
+                  <div 
+                    key={i} 
+                    className={`problem-card p-6 animate-slideIn ${solved ? 'border-green-400' : ''}`}
+                    style={{animationDelay: `${0.1 * (i + 1)}s`}}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {i+1}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg mb-1">{p.title}</h3>
+                            <div className="flex items-center gap-3 text-sm">
+                              <span className={`flex items-center gap-1 ${difficultyColor}`}>
+                                {difficultyEmoji} {p.difficulty || 'Medium'}
+                              </span>
+                              <span className="text-muted flex items-center gap-1">
+                                🏷️ {problemTypes[i]}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <a 
+                          href={`https://leetcode.com/problems/${p.slug}/`} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
+                        >
+                          Open on LeetCode →
+                        </a>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {contest.startTime && !ended ? (
+                          solved ? (
+                            <button 
+                              onClick={()=>mark(i, false)} 
+                              className="btn-solved flex items-center gap-2"
+                            >
+                              Solved
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={()=>mark(i, true)} 
+                              className="btn-accent"
+                            >
+                              Mark Solved
+                            </button>
+                          )
+                        ) : (
+                          <div className="text-sm text-muted italic">
+                            Contest not started
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* Only allow marking after the contest has started */}
-                    {contest.startTime && !ended ? (
-                      (() => {
-                        const solved = contest.results && contest.results[userId] && contest.results[userId].solved && contest.results[userId].solved[i]
-                        if (solved) {
-                          return <button onClick={()=>mark(i, false)} className="btn-solved">Solved</button>
-                        }
-                        return <button onClick={()=>mark(i, true)} className="btn-accent btn-sm">Mark Solved</button>
-                      })()
-                    ) : (
-                      <div className="text-sm muted italic">Contest not started</div>
-                    )}
-                  </div>
-                </div>
-            ))}
+                )
+              })}
+            </div>
           </div>
         )}
         <Toast />
