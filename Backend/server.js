@@ -104,7 +104,8 @@ app.post('/contest/:id/mark', (req, res) => {
   if (!userId) return res.status(400).json({ error: 'userId required' });
   c.results[userId] = c.results[userId] || { solved: {} };
   c.results[userId].solved[problemIndex] = !!solved;
-  res.json({ ok: true });
+  // return updated contest so clients can refresh local state
+  res.json({ ok: true, contest: c });
 });
 
 const PORT = process.env.PORT || 5000;

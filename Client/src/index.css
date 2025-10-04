@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+/* Make native buttons show pointer cursor by default */
+button {
+	cursor: pointer;
+}
+
+/* Utility class for non-button clickable elements */
+.clickable { cursor: pointer; }
+
+/* Lightweight button affordance */
+button {
+	transition: transform 80ms ease, opacity 120ms ease;
+}
+
+button:hover {
+	opacity: 0.98;
+	transform: translateY(-1px);
+}
+
+button:active {
+	transform: translateY(0);
+	opacity: 0.95;
+}
+
+button:focus {
+	outline: 2px solid rgba(59,130,246,0.35); /* blue-500 at 35% */
+	outline-offset: 2px;
+}
