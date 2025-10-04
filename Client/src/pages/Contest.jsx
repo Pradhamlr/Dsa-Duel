@@ -47,6 +47,34 @@ export default function Contest(){
     load()
   },[id])
 
+  // Poll status every 3s for participants so they see when the creator starts the contest
+  useEffect(()=>{
+    if (!contest) return
+    // if contest already started, nothing to do
+    if (contest.startTime) return
+    let cancelled = false
+    const interval = setInterval(async ()=>{
+      try {
+        const res = await fetch(`${API}/contest/${id}/status`)
+        if (!res.ok) return
+        const s = await res.json()
+        if (s && s.startTime) {
+          // fetch full contest and update
+          const r = await fetch(`${API}/contest/${id}`)
+          if (!r.ok) return
+          const updated = await r.json()
+          if (!cancelled) {
+            setContest(updated)
+            window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest started', type:'info'}}))
+          }
+        }
+      } catch (e) {
+        // ignore network errors during polling
+      }
+    }, 3000)
+    return ()=>{ cancelled = true; clearInterval(interval) }
+  }, [contest, id])
+
   async function start(){
     const body = {}
     if (durationOverrideMin) body.duration = Number(durationOverrideMin) * 60
