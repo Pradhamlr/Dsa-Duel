@@ -27,3 +27,44 @@ button:focus {
 	outline: 2px solid rgba(59,130,246,0.35); /* blue-500 at 35% */
 	outline-offset: 2px;
 }
+
+/* Card utility */
+.card {
+	background: white;
+	border-radius: 8px;
+	box-shadow: 0 6px 18px rgba(12, 12, 14, 0.06);
+	border: 1px solid rgba(0,0,0,0.04);
+}
+
+/* Small subtle heading */
+.muted { color: #6b7280; }
+
+.tight { line-height: 1.1 }
+
+.pill {
+	padding: 6px 10px;
+	border-radius: 9999px;
+	background: #f3f4f6;
+	font-size: 0.875rem;
+}
+
+/* leaderboard highlight for current user */
+.leader-current { background: linear-gradient(90deg, rgba(99,102,241,0.04), rgba(59,130,246,0.02)); }
+.leader-current { border-left: 3px solid rgba(99,102,241,0.6); }
+
+/* problem card hover */
+.problem-card { transition: box-shadow 120ms ease, transform 80ms ease; }
+.problem-card:hover { box-shadow: 0 10px 30px rgba(12,12,14,0.06); transform: translateY(-3px); }
+
+/* Buttons */
+.btn-primary { background: #10b981; color: white; padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; }
+.btn-primary:hover { filter: brightness(0.98); transform: translateY(-1px); }
+.btn-outline { background: transparent; color: #111827; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.08); cursor: pointer; }
+.btn-outline:hover { background: #f8fafc; }
+
+/* Leaderboard rows */
+.leader-rows .leader-row:nth-child(even) { background: rgba(0,0,0,0.02); }
+.leader-row { display: grid; grid-template-columns: 48px 1fr 80px; gap: 12px; align-items: center; padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+.leader-row .user-name { font-weight: 600 }
+.leader-row .user-id { font-size: 0.75rem; color: #6b7280 }
+.leader-count { font-weight: 700; text-align: right }

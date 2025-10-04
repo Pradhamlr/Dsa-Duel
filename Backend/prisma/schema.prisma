@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String? 
+  createdAt DateTime @default(now())
+
+  contests  Contest[] @relation("CreatorContests")
+  results   Result[]
+}
+
+model Contest {
+  id              String   @id @default(uuid()) // you can use your short id if you prefer
+  creatorId       String?
+  creator         User?    @relation("CreatorContests", fields: [creatorId], references: [id])
+  numProblems     Int
+  difficulty      String
+  problems        Json
+  createdAt       DateTime @default(now())
+  startTime       DateTime?
+  durationSeconds Int
+  results         Result[]
+
+  @@index([creatorId])
+}
+
+model Result {
+  id          Int      @id @default(autoincrement())
+  contestId   String
+  contest     Contest  @relation(fields: [contestId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  problemIndex Int
+  solvedAt    DateTime?
+
+  @@unique([contestId, userId, problemIndex])
+  @@index([contestId, userId])
+}
