@@ -16,22 +16,33 @@ const prisma = new PrismaClient()
 
 const app = express();
 const allowedOrigins = [
-  "https://dsa-duel.vercel.app", // your frontend domain
-  "http://localhost:5173"         // optional, for local dev
-];
+  'https://dsa-duel.vercel.app', // your frontend domain
+  'http://localhost:5173'         // optional, for local dev
+]
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow non-browser requests
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = "The CORS policy for this site does not allow access from the specified Origin.";
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
+    // Log incoming origin for debugging (visible in Render logs)
+    console.log('CORS check, origin:', origin)
+    // Allow non-browser or same-origin requests (e.g., server-to-server)
+    if (!origin) return callback(null, true)
+
+    // direct match to whitelist
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+
+    // allow vercel subdomains (helps when your frontend is deployed on vercel preview links)
+    try {
+      if (typeof origin === 'string' && origin.endsWith('.vercel.app')) return callback(null, true)
+    } catch (e) { /* ignore */ }
+
+    // otherwise reject
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.'
+    return callback(new Error(msg), false)
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true, // if you need cookies / auth headers
-};
+  optionsSuccessStatus: 200, // some legacy browsers choke without this
+}
 
 // Apply CORS to all routes
 app.use(cors(corsOptions));
