@@ -11,6 +11,9 @@ import cors from 'cors';
 import fetch from 'node-fetch';
 import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client'
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import authMiddleware from './middleware/authMiddleware.js';
 
 async function withPrisma(callback) {
   const prisma = new PrismaClient({
@@ -55,6 +58,144 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Authentication Routes
+app.post('/auth/register', async (req, res) => {
+  try {
+    const { email, username, password, name } = req.body;
+  
+  if (!email && !username) {
+    return res.status(400).json({ error: 'Email or username required' });
+  }
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  const result = await withPrisma(async (prisma) => {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: email || undefined },
+          { username: username || undefined }
+        ]
+      }
+    }).catch(() => null);
+    
+    if (existingUser) {
+      return { error: 'User already exists', status: 400 };
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const userData = {
+      id: randomUUID(),
+      name: name || username || email?.split('@')[0]
+    };
+    
+    try {
+      userData.email = email;
+      userData.username = username;
+      userData.password = hashedPassword;
+    } catch (e) {
+      console.log('Using legacy user schema');
+    }
+    
+    const user = await prisma.user.create({ data: userData });
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        name: user.name
+      }
+    };
+  });
+
+  if (result.error) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  res.status(201).json(result);
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Registration failed: ' + err.message });
+  }
+});
+
+app.post('/auth/login', async (req, res) => {
+  try {
+    const { email, username, password } = req.body;
+  
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+  if (!email && !username) {
+    return res.status(400).json({ error: 'Email or username required' });
+  }
+
+  const result = await withPrisma(async (prisma) => {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: email || undefined },
+          { username: username || undefined }
+        ]
+      }
+    }).catch(() => null);
+    
+    if (!user || !user.password) {
+      return { error: 'Invalid credentials', status: 401 };
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return { error: 'Invalid credentials', status: 401 };
+    }
+
+    try {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() }
+      });
+    } catch (e) {
+      console.log('lastLogin field not available');
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        name: user.name
+      }
+    };
+  });
+
+  if (result.error) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  res.json(result);
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed: ' + err.message });
+  }
+});
+
 async function fetchLeetCodePool() {
   const res = await fetch('https://leetcode.com/api/problems/all/');
   const data = await res.json();
@@ -85,7 +226,7 @@ function getProblemType(p){
   return 'Other'
 }
 
-app.post('/create-contest', async (req, res) => {
+app.post('/create-contest', authMiddleware, async (req, res) => {
   try {
     const { numProblems = 5, difficulty = 'mixed', duration } = req.body || {};
     const pool = await fetchLeetCodePool();
@@ -116,16 +257,12 @@ app.post('/create-contest', async (req, res) => {
       const id = randomUUID().slice(0,8);
       const durationSeconds = duration && Number.isFinite(Number(duration)) ? Number(duration) : 90 * 60
 
-      let creatorId = null
-      let creatorName = null
-      if (req.body && req.body.creatorId) {
-        creatorId = req.body.creatorId
-        creatorName = req.body.creatorName || null
-        try {
-          await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
-        } catch (e) {
-          console.error('User upsert error:', e)
-        }
+      const creatorId = req.user.userId
+      const creatorName = req.user.username || req.user.email?.split('@')[0]
+      try {
+        await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
+      } catch (e) {
+        console.error('User upsert error:', e)
       }
 
       const created = await prisma.contest.create({
@@ -200,7 +337,7 @@ app.get('/contest/:id', async (req, res) => {
   }
 })
 
-app.post('/contest/:id/start', async (req, res) => {
+app.post('/contest/:id/start', authMiddleware, async (req, res) => {
   try {
     const result = await withPrisma(async (prisma) => {
       const id = req.params.id
@@ -208,9 +345,9 @@ app.post('/contest/:id/start', async (req, res) => {
       if (!contest) return { error: 'not found', status: 404 }
       if (contest.startTime) return { error: 'already started', status: 400 }
 
-      const { duration, callerId } = req.body || {}
+      const { duration } = req.body || {}
 
-      if (contest.creatorId && callerId && contest.creatorId !== callerId) {
+      if (contest.creatorId && contest.creatorId !== req.user.userId) {
         return { error: 'only creator can start', status: 403 }
       }
 
@@ -246,12 +383,13 @@ app.get('/contest/:id/status', async (req, res) => {
   }
 })
 
-app.post('/contest/:id/mark', async (req, res) => {
+app.post('/contest/:id/mark', authMiddleware, async (req, res) => {
   try {
     const result = await withPrisma(async (prisma) => {
       const id = req.params.id
-      const { userId, problemIndex, solved, displayName } = req.body
-      if (!userId) return { error: 'userId required', status: 400 }
+      const { problemIndex, solved } = req.body
+      const userId = req.user.userId
+      const displayName = req.user.username || req.user.email?.split('@')[0]
 
       const contest = await prisma.contest.findUnique({ where: { id } })
       if (!contest) return { error: 'not found', status: 404 }
@@ -369,6 +507,12 @@ app.get('/debug/results', async (req, res) => {
     res.status(500).json({ error: 'failed' })
   }
 })
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error: ' + err.message });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log('Backend listening on', PORT));

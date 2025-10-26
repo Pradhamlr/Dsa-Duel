@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Toast from '../components/Toast'
-
-// Use production backend by default if VITE_API_BASE is not set
-const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
+import { authFetch } from '../utils/api'
 
 export default function Home(){
   const [num, setNum] = useState(5)
@@ -35,24 +33,15 @@ export default function Home(){
   async function create(){
     try {
       setLoading(true)
-      // ensure user id exists
-      let userId = null
-      try {
-        userId = localStorage.getItem('duel_userId')
-        if (!userId) {
-          userId = Math.random().toString(36).slice(2,9)
-          localStorage.setItem('duel_userId', userId)
-        }
-      } catch (err) {
-        userId = Math.random().toString(36).slice(2,9)
-      }
-      // persist display name
-      try { localStorage.setItem('duel_name', displayName || '') } catch (e) {}
-
-      const res = await fetch(`${API}/create-contest`, {
+      
+      const res = await authFetch('/create-contest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numProblems: Number(num), difficulty, duration: Number(durationMin) * 60, creatorId: userId, creatorName: displayName })
+        body: JSON.stringify({ 
+          numProblems: Number(num), 
+          difficulty, 
+          topic: topic !== 'All' ? topic : undefined,
+          duration: Number(durationMin) * 60 
+        })
       })
 
       if (!res.ok) {

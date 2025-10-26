@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Timer from '../components/Timer'
 import Toast from '../components/Toast'
-
-// Use production backend by default if VITE_API_BASE is not set
-const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
+import { authFetch, API } from '../utils/api'
 
 export default function Contest(){
   const { id } = useParams()
@@ -84,7 +82,7 @@ export default function Contest(){
 
   async function startWithBody(body){
     try {
-      const res = await fetch(`${API}/contest/${id}/start`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      const res = await authFetch(`/contest/${id}/start`, { method: 'POST', body: JSON.stringify(body) })
       if (!res.ok) {
         const err = await res.json().catch(()=>({ error: 'failed' }))
         throw new Error(err.error || 'Failed to start')
@@ -112,8 +110,7 @@ export default function Contest(){
     })
 
     try {
-      const displayName = localStorage.getItem('duel_name') || null
-      const res = await fetch(`${API}/contest/${id}/mark`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ userId, problemIndex: idx, solved, displayName }) })
+      const res = await authFetch(`/contest/${id}/mark`, { method: 'POST', body: JSON.stringify({ problemIndex: idx, solved }) })
       if (!res.ok) throw new Error('mark failed')
       const data = await res.json()
       if (data && data.contest) {
@@ -134,9 +131,7 @@ export default function Contest(){
   async function saveName(){
     try {
       localStorage.setItem('duel_name', displayName || '')
-      // upsert via backend so leaderboard shows name immediately
-      await fetch(`${API}/user`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ userId, name: displayName }) })
-      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Name saved', type:'success'}}))
+      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Name updated locally', type:'success'}}))
     } catch (e) {
       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Failed to save name', type:'error'}}))
     }
