@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
@@ -12,6 +12,21 @@ export default function Auth({ onAuthSuccess }) {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dark, setDark] = useState(() => {
+    try {
+      const val = localStorage.getItem('duel_dark')
+      if (val === null) return true
+      return val === '1'
+    } catch { return true }
+  })
+
+  useEffect(() => {
+    try {
+      if (dark) document.documentElement.classList.add('dark')
+      else document.documentElement.classList.remove('dark')
+      localStorage.setItem('duel_dark', dark ? '1' : '0')
+    } catch (e) {}
+  }, [dark])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -52,6 +67,15 @@ export default function Auth({ onAuthSuccess }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="fixed top-4 right-4 z-50">
+        <button 
+          onClick={() => setDark(d => !d)} 
+          className="btn-neutral btn-sm" 
+          aria-pressed={dark}
+        >
+          {dark ? 'Dark' : 'Light'}
+        </button>
+      </div>
       <div className="card p-8 w-full max-w-md">
         <h1 className="text-2xl font-bold text-center mb-6">
           {isLogin ? 'Login to DSA Duel' : 'Join DSA Duel'}
