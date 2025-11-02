@@ -1,5 +1,26 @@
 import React, { useState } from 'react'
 
+const EyeSVG = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const EyeOffSVG = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path d="M17.94 17.94A10.06 10.06 0 0 1 12 19c-6 0-10-7-10-7a18.6 18.6 0 0 1 4.11-3.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9.88 9.88a3 3 0 0 0 4.24 4.24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const CheckSVG = ({ size = 12, color = '#fff' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
 export default function Auth({ onAuthSuccess }) {
@@ -54,8 +75,8 @@ export default function Auth({ onAuthSuccess }) {
   return (
     <div className="min-h-screen" style={{
       background: isLogin 
-        ? 'linear-gradient(135deg, #8B5CF6 0%, #06B6D4 50%, #10B981 100%)'
-        : 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F59E0B 100%)'
+        ? 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(56,189,248,0.10) 50%, rgba(34,197,94,0.07) 100%)'
+        : 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(236,72,153,0.10) 50%, rgba(253,224,71,0.07) 100%)'
     }}>
       {/* Header */}
       <div className="flex justify-between items-center p-6">
@@ -67,7 +88,20 @@ export default function Auth({ onAuthSuccess }) {
         </div>
         <button 
           onClick={() => setIsLogin(!isLogin)}
-          className="px-6 py-2 border border-gray-800 text-gray-800 bg-white/80 rounded font-medium hover:bg-white transition-colors"
+          // inline styles to guarantee visibility over gradient
+          style={{
+            backgroundColor: '#ffffff',
+            color: '#111827',
+            padding: '6px 10px',
+            border: '2px solid #000000',
+            borderRadius: 8,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+            fontSize: '0.875rem',
+            outline: '2px solid rgba(0,0,0,0.95)',
+            outlineOffset: 2,
+            zIndex: 60,
+            cursor: 'pointer'
+          }}
         >
           {isLogin ? 'SIGN UP' : 'SIGN IN'}
         </button>
@@ -75,7 +109,7 @@ export default function Auth({ onAuthSuccess }) {
 
       {/* Main Content */}
       <div className="flex items-center justify-center px-6" style={{ minHeight: 'calc(100vh - 120px)' }}>
-        <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+        <div className="bg-white rounded-xl shadow-lg ring-1 ring-gray-100 p-8 w-full max-w-md">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
               {isLogin ? 'Log In to DSA Duel' : 'Sign up to DSA Duel'}
@@ -101,7 +135,7 @@ export default function Auth({ onAuthSuccess }) {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
                   placeholder="John"
                   required
                 />
@@ -116,7 +150,7 @@ export default function Auth({ onAuthSuccess }) {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
                 placeholder="johndoe@example.com"
                 required
               />
@@ -131,7 +165,7 @@ export default function Auth({ onAuthSuccess }) {
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
                   placeholder="johndoe"
                   required
                 />
@@ -147,37 +181,88 @@ export default function Auth({ onAuthSuccess }) {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
                   placeholder="••••••••••"
                   required
                   minLength={6}
                 />
-                <span
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer select-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  // explicit absolute positioning so icon is locked to the right inside the input
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none"
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: 12, // matches input pr-12
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 0,
+                    zIndex: 20
+                  }}
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
-                </span>
+                  {showPassword ? <EyeOffSVG size={18} /> : <EyeSVG size={18} />}
+                </button>
               </div>
             </div>
-
-            
 
             {isLogin && (
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="remember"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
-                  />
-                  <label htmlFor="remember" className="text-sm text-gray-600">
+                  {/* custom accessible checkbox */}
+                  <div
+                     role="checkbox"
+                     aria-checked={rememberMe}
+                     tabIndex={0}
+                     onClick={() => setRememberMe(!rememberMe)}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter' || e.key === ' ') {
+                         e.preventDefault()
+                         setRememberMe(!rememberMe)
+                       }
+                     }}
+                     className={`w-5 h-5 flex items-center justify-center rounded-md transition-colors cursor-pointer select-none
+                       ${rememberMe ? 'bg-black border-black' : 'bg-white border border-gray-300'}`}
+                   >
+                    {rememberMe && <CheckSVG size={12} color="#fff" />}
+                   </div>
+                  {/* text-only, accessible toggle (no background) */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setRememberMe(!rememberMe)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setRememberMe(!rememberMe)
+                      }
+                    }}
+                    // match Forgot Password font size (text-sm)
+                    className="text-sm font-medium text-gray-600 ml-2 cursor-pointer focus:outline-none"
+                    style={{ background: 'transparent', padding: 0, border: 'none' }}
+                  >
                     Remember Me
-                  </label>
+                  </span>
                 </div>
-                <button type="button" className="text-sm text-gray-600 hover:underline">
+                <button
+                  type="button"
+                  // inline style so it's always slightly visible
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    color: '#6b7280',
+                    padding: '6px 8px',
+                    borderRadius: 6,
+                    border: 'none',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer'
+                  }}
+                >
                   Forgot Password?
                 </button>
               </div>
@@ -186,7 +271,20 @@ export default function Auth({ onAuthSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gray-800 text-white py-3 rounded-md font-medium hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              // inline style to guarantee black/white appearance
+              style={{
+                width: '100%',
+                backgroundColor: '#000000',
+                color: '#ffffff',
+                padding: '12px 16px',
+                borderRadius: 10,
+                fontWeight: 600,
+                border: 'none',
+                boxShadow: '0 1px 6px rgba(0,0,0,0.12)',
+                marginTop: 18,
+                cursor: loading ? 'default' : 'pointer'
+              }}
+              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Please wait...' : (isLogin ? 'PROCEED' : 'CREATE AN ACCOUNT')}
             </button>
