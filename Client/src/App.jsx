@@ -3,11 +3,14 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Contest from './pages/Contest'
 import Leaderboard from './pages/Leaderboard'
+import Landing from './pages/Landing'
 import Auth from './components/Auth'
 
 export default function App(){
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showAuth, setShowAuth] = useState(false)
+  const [authMode, setAuthMode] = useState('login')
 
   // Check for existing authentication
   useEffect(() => {
@@ -63,8 +66,26 @@ export default function App(){
     )
   }
 
+  const handleNavigate = (mode) => {
+    setAuthMode(mode)
+    setShowAuth(true)
+  }
+
+  const handleBackToLanding = () => {
+    setShowAuth(false)
+  }
+
   if (!user) {
-    return <Auth onAuthSuccess={handleAuthSuccess} />
+    if (showAuth) {
+      return (
+        <Auth 
+          onAuthSuccess={handleAuthSuccess} 
+          initialMode={authMode}
+          onBack={handleBackToLanding}
+        />
+      )
+    }
+    return <Landing onNavigate={handleNavigate} />
   }
 
   return (

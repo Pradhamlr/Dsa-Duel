@@ -22,7 +22,10 @@ export const register = async (req, res) => {
             { username: username || undefined }
           ]
         }
-      }).catch(() => null);
+      }).catch((error) => {
+        console.error('Database error while checking existing user:', error);
+        throw new Error('Database connection failed');
+      });
       
       if (existingUser) {
         return { error: 'User already exists', status: 400 };

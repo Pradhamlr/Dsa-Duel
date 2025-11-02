@@ -23,8 +23,8 @@ const CheckSVG = ({ size = 12, color = '#fff' }) => (
 
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
-export default function Auth({ onAuthSuccess }) {
-  const [isLogin, setIsLogin] = useState(true)
+export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
+  const [isLogin, setIsLogin] = useState(initialMode === 'login')
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -75,17 +75,29 @@ export default function Auth({ onAuthSuccess }) {
   return (
     <div className="min-h-screen" style={{
       background: isLogin 
-        ? 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(56,189,248,0.10) 50%, rgba(34,197,94,0.07) 100%)'
-        : 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(236,72,153,0.10) 50%, rgba(253,224,71,0.07) 100%)'
+        ? 'linear-gradient(135deg, rgba(99,102,241,0.22) 0%, rgba(56,189,248,0.16) 50%, rgba(34,197,94,0.12) 100%)'
+        : 'linear-gradient(135deg, rgba(99,102,241,0.22) 0%, rgba(236,72,153,0.16) 50%, rgba(253,224,71,0.12) 100%)'
     }}>
       {/* Header */}
-      <div className="flex justify-between items-center p-6">
+      <div className="flex justify-between items-center p-6 shadow-sm border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-sm">DD</span>
-          </div>
-          <span className="text-white font-semibold text-lg">DSA DUEL</span>
+          
+          <span className="text-gray-900 font-semibold text-lg">DSA DUEL</span>
         </div>
+        
+        {/* Breadcrumb */}
+        <div className="flex items-center space-x-2 text-sm text-gray-500 font-medium mr-8">
+          <button type="button" aria-label="Home" onClick={onBack} className="p-1 rounded hover:bg-white hover:bg-opacity-20 transition-colors">
+            <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 7.609c.352 0 .69.122.96.343l.111.1 6.25 6.25v.001a1.5 1.5 0 0 1 .445 1.071v7.5a.89.89 0 0 1-.891.891H9.125a.89.89 0 0 1-.89-.89v-7.5l.006-.149a1.5 1.5 0 0 1 .337-.813l.1-.11 6.25-6.25c.285-.285.67-.444 1.072-.444Zm5.984 7.876L16 9.5l-5.984 5.985v6.499h11.968z" fill="#475569" stroke="#475569" strokeWidth=".094"/>
+            </svg>
+          </button>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="m14.413 10.663-6.25 6.25a.939.939 0 1 1-1.328-1.328L12.42 10 6.836 4.413a.939.939 0 1 1 1.328-1.328l6.25 6.25a.94.94 0 0 1-.001 1.328" fill="#000000"/>
+          </svg>
+          <span className="text-indigo-500 font-semibold">{isLogin ? 'Sign In' : 'Sign Up'}</span>
+        </div>
+        
         <button 
           onClick={() => setIsLogin(!isLogin)}
           // inline styles to guarantee visibility over gradient
@@ -108,7 +120,7 @@ export default function Auth({ onAuthSuccess }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center px-6" style={{ minHeight: 'calc(100vh - 120px)' }}>
+      <div className="flex items-center justify-center px-6 pt-8" style={{ minHeight: 'calc(100vh - 160px)' }}>
         <div className="bg-white rounded-xl shadow-lg ring-1 ring-gray-100 p-8 w-full max-w-md">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
