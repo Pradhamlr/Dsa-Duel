@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
@@ -12,21 +12,8 @@ export default function Auth({ onAuthSuccess }) {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [dark, setDark] = useState(() => {
-    try {
-      const val = localStorage.getItem('duel_dark')
-      if (val === null) return true
-      return val === '1'
-    } catch { return true }
-  })
-
-  useEffect(() => {
-    try {
-      if (dark) document.documentElement.classList.add('dark')
-      else document.documentElement.classList.remove('dark')
-      localStorage.setItem('duel_dark', dark ? '1' : '0')
-    } catch (e) {}
-  }, [dark])
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -51,7 +38,6 @@ export default function Auth({ onAuthSuccess }) {
         throw new Error(data.error || 'Authentication failed')
       }
 
-      // Store token and user data
       localStorage.setItem('duel_token', data.token)
       localStorage.setItem('duel_user', JSON.stringify(data.user))
       localStorage.setItem('duel_userId', data.user.id)
@@ -66,98 +52,145 @@ export default function Auth({ onAuthSuccess }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="fixed top-4 right-4 z-50">
+    <div className="min-h-screen" style={{
+      background: isLogin 
+        ? 'linear-gradient(135deg, #8B5CF6 0%, #06B6D4 50%, #10B981 100%)'
+        : 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F59E0B 100%)'
+    }}>
+      {/* Header */}
+      <div className="flex justify-between items-center p-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
+            <span className="text-white font-bold text-sm">DD</span>
+          </div>
+          <span className="text-white font-semibold text-lg">DSA DUEL</span>
+        </div>
         <button 
-          onClick={() => setDark(d => !d)} 
-          className="btn-neutral btn-sm" 
-          aria-pressed={dark}
+          onClick={() => setIsLogin(!isLogin)}
+          className="px-6 py-2 border border-gray-800 text-gray-800 bg-white/80 rounded font-medium hover:bg-white transition-colors"
         >
-          {dark ? 'Dark' : 'Light'}
+          {isLogin ? 'SIGN UP' : 'SIGN IN'}
         </button>
       </div>
-      <div className="card p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6">
-          {isLogin ? 'Login to DSA Duel' : 'Join DSA Duel'}
-        </h1>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+      {/* Main Content */}
+      <div className="flex items-center justify-center px-6" style={{ minHeight: 'calc(100vh - 120px)' }}>
+        <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              {isLogin ? 'Log In to DSA Duel' : 'Sign up to DSA Duel'}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              Quick & Simple way to practice competitive programming
+            </p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium mb-2">Display Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full"
-                placeholder="Your display name"
-              />
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+              {error}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {isLogin ? 'Email or Username' : 'Email'}
-            </label>
-            <input
-              type={isLogin ? "text" : "email"}
-              value={isLogin ? (formData.email || formData.username) : formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full"
-              placeholder={isLogin ? "Email or username" : "your@email.com"}
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                  FIRST NAME
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  placeholder="John"
+                  required
+                />
+              </div>
+            )}
 
-          {!isLogin && (
             <div>
-              <label className="block text-sm font-medium mb-2">Username</label>
+              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                EMAIL ADDRESS
+              </label>
               <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
-                className="w-full"
-                placeholder="Choose a username"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                placeholder="johndoe@example.com"
                 required
               />
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Password</label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              className="w-full"
-              placeholder="Password"
-              required
-              minLength={6}
-            />
-          </div>
+            {!isLogin && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                  USERNAME
+                </label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  placeholder="johndoe"
+                  required
+                />
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full btn-primary"
-          >
-            {loading ? 'Please wait...' : (isLogin ? 'Login' : 'Register')}
-          </button>
-        </form>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                PASSWORD
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                  placeholder="••••••••••"
+                  required
+                  minLength={6}
+                />
+                <span
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer select-none"
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </span>
+              </div>
+            </div>
 
-        <div className="text-center mt-4">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 hover:underline"
-          >
-            {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
-          </button>
+            
+
+            {isLogin && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                  />
+                  <label htmlFor="remember" className="text-sm text-gray-600">
+                    Remember Me
+                  </label>
+                </div>
+                <button type="button" className="text-sm text-gray-600 hover:underline">
+                  Forgot Password?
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gray-800 text-white py-3 rounded-md font-medium hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            >
+              {loading ? 'Please wait...' : (isLogin ? 'PROCEED' : 'CREATE AN ACCOUNT')}
+            </button>
+          </form>
         </div>
       </div>
     </div>
