@@ -91,12 +91,6 @@ export default function App(){
   return (
     <div className="min-h-screen transition-colors duration-300">
       <BrowserRouter>
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
-          <span className="text-sm">Welcome, {user.name || user.username}</span>
-          <button onClick={handleLogout} className="btn-neutral btn-sm">
-            Logout
-          </button>
-        </div>
         <Routes>
           <Route path="/" element={<Home/>} />
           <Route path="/contest/:id" element={<Contest/>} />
