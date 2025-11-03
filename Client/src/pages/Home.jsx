@@ -162,7 +162,7 @@ export default function Home(){
       <div className="flex items-center justify-center p-4 sm:p-6" style={{ minHeight: 'calc(100vh - 80px)' }}>
         <div className="w-full max-w-4xl flex flex-col md:flex-row gap-8">
           {/* Left Sidebar */}
-          <div className="hidden md:block w-80 bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 flex items-center">
+          <div className="hidden md:block w-80 h-86 bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 flex items-center my-auto">
             <div className="relative w-full">
               {steps.map((step, idx) => (
                 <div key={step.id} className="relative">
@@ -181,13 +181,12 @@ export default function Home(){
                       }`}>
                         {step.title}
                       </div>
-                      <div className="text-sm text-gray-500">{step.desc}</div>
                     </div>
                   </div>
                   
                   {/* Progress Line */}
                   {idx < steps.length - 1 && (
-                    <div className="absolute left-5 top-16 w-0.5 h-6 -translate-x-0.5">
+                    <div className="absolute left-5 top-14 w-0.5 h-12 -translate-x-0.5">
                       <div className="w-full h-full bg-gray-200 rounded-full"></div>
                       <div className={`absolute top-0 left-0 w-full rounded-full transition-all duration-500 ease-in-out ${
                         currentStep > step.id ? 'h-full bg-gradient-to-b from-blue-500 to-blue-600 shadow-sm' :
@@ -207,33 +206,47 @@ export default function Home(){
             {/* Step 1: Problem Count */}
             {currentStep === 1 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Mission Setup</h2>
-                <p className="text-gray-600 mb-8">Choose your challenge intensity</p>
+                <p className="text-2xl font-semibold mb-8 text-gray-900">Pick a pace that fits your focus right now</p>
                 
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { count: 3, mode: 'Speed Duel', desc: 'Quick & intense', color: 'from-orange-400 to-red-500', icon: '⚡' },
-                    { count: 4, mode: 'Balanced', desc: 'Perfect challenge', color: 'from-blue-400 to-indigo-500', icon: '⚖️' },
-                    { count: 5, mode: 'Marathon', desc: 'Ultimate test', color: 'from-purple-400 to-pink-500', icon: '🏆' }
-                  ].map(option => (
-                    <button
-                      key={option.count}
-                      onClick={() => setNum(option.count)}
-                      className={`group relative p-6 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 ${
-                        num === option.count 
-                          ? `border-transparent shadow-2xl bg-gradient-to-br ${option.color} text-white scale-105` 
-                          : 'border-gray-200 hover:border-gray-300 bg-white/70 hover:shadow-lg'
-                      }`}
-                    >
-                      <div className="text-3xl mb-3">{option.icon}</div>
-                      <div className="text-xl font-bold mb-1">{option.count}</div>
-                      <div className="text-sm font-semibold mb-1">{option.mode}</div>
-                      <div className={`text-xs ${num === option.count ? 'text-white/80' : 'text-gray-500'}`}>{option.desc}</div>
-                      {num === option.count && (
-                        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent pointer-events-none"></div>
-                      )}
-                    </button>
-                  ))}
+                <div className="flex justify-center">
+                  <div className="inline-flex bg-gray-100 rounded-2xl p-1.5">
+                    {[
+                      { count: 3, label: 'Short Session' },
+                      { count: 4, label: 'Standard Match' },
+                      { count: 5, label: 'Focused Run' }
+                    ].map(option => (
+                      <button
+                        key={option.count}
+                        onClick={() => setNum(option.count)}
+                        className={`relative px-10 py-5 rounded-xl transition-all duration-300 ease-out group ${
+                          num === option.count 
+                            ? 'bg-white shadow-lg transform scale-105' 
+                            : 'hover:bg-white/50 hover:shadow-md hover:transform hover:scale-102'
+                        }`}
+                        style={{
+                          boxShadow: num === option.count 
+                            ? '0 8px 25px rgba(0,0,0,0.1), 0 0 0 1px rgba(59,130,246,0.1)' 
+                            : undefined
+                        }}
+                      >
+                        <div className="flex flex-col items-center">
+                          <div className={`text-2xl font-semibold mb-1 transition-colors duration-200 ${
+                            num === option.count ? 'text-blue-600' : 'text-gray-700 group-hover:text-gray-900'
+                          }`}>
+                            {option.count}
+                          </div>
+                          <div className={`text-xs font-medium transition-colors duration-200 ${
+                            num === option.count ? 'text-blue-500' : 'text-gray-500 group-hover:text-gray-600'
+                          }`}>
+                            {option.label}
+                          </div>
+                        </div>
+                        {num === option.count && (
+                          <div className="absolute inset-0 rounded-xl bg-blue-50/50 animate-pulse"></div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex justify-end mt-8">
@@ -260,7 +273,7 @@ export default function Home(){
                       e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                   >
-                    <span className="relative z-10">CONTINUE MISSION</span>
+                    <span className="relative z-10">CONTINUE</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
                 </div>
@@ -270,52 +283,66 @@ export default function Home(){
             {/* Step 2: Difficulty Level */}
             {currentStep === 2 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Challenge Intensity</h2>
-                <p className="text-gray-600 mb-8">Set your battlefield difficulty</p>
+                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Difficulty Level</h2>
+                <p className="text-gray-600 mb-8">Select problem difficulty</p>
                 
                 <div className="relative">
-                  <div className="flex bg-gray-100 rounded-2xl p-2 relative overflow-hidden">
-                    <div 
-                      className="absolute top-2 bottom-2 bg-gradient-to-r transition-all duration-500 ease-out rounded-xl shadow-lg"
-                      style={{
-                        width: '33.333%',
-                        left: difficulty === 'Easy' ? '0.5rem' : difficulty === 'Medium' ? '33.833%' : '66.166%',
-                        background: difficulty === 'Easy' ? 'linear-gradient(135deg, #10b981, #059669)' :
-                                   difficulty === 'Medium' ? 'linear-gradient(135deg, #f59e0b, #d97706)' :
-                                   'linear-gradient(135deg, #8b5cf6, #7c3aed)'
-                      }}
-                    ></div>
-                    {difficultyCards.map((card, idx) => (
-                      <button
-                        key={card.id}
-                        onClick={() => setDifficulty(card.id)}
-                        className={`flex-1 relative z-10 py-4 px-6 rounded-xl font-semibold transition-all duration-300 ${
-                          difficulty === card.id ? 'text-white' : 'text-gray-600 hover:text-gray-900'
+                  <div className="relative w-full max-w-lg mx-auto">
+                    {/* Track with subtle gradient */}
+                    <div className="h-1.5 bg-gradient-to-r from-emerald-100 via-amber-100 to-violet-100 rounded-full relative">
+                      {/* Tick marks */}
+                      {difficultyCards.map((card, idx) => (
+                        <div
+                          key={card.id}
+                          className={`absolute top-1/2 w-2 h-2 rounded-full transform -translate-y-1/2 transition-all duration-300 ${
+                            difficulty === card.id
+                              ? 'bg-gray-700 scale-125 shadow-sm'
+                              : 'bg-gray-300'
+                          }`}
+                          style={{ left: `calc(${idx * 50}% - 4px)` }}
+                        />
+                      ))}
+                      
+                      {/* Slider thumb */}
+                      <div
+                        className={`absolute top-1/2 w-5 h-5 bg-white rounded-full shadow-md transform -translate-y-1/2 transition-all duration-300 ease-out border border-gray-200 ${
+                          difficultyCards.some(card => card.id === difficulty) ? 'scale-110 shadow-lg' : ''
                         }`}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <span className="text-2xl">{card.icon}</span>
-                          <span className="text-sm">{card.label}</span>
-                          {card.id === 'mixed' && <span className="text-xs opacity-70">Adaptive</span>}
-                        </div>
-                      </button>
-                    ))}
+                        style={{
+                          left: `calc(${difficultyCards.findIndex(card => card.id === difficulty) * 50}% - 10px)`,
+                          boxShadow: difficultyCards.some(card => card.id === difficulty) 
+                            ? '0 4px 16px rgba(0,0,0,0.12), 0 0 0 2px rgba(99,102,241,0.08)' 
+                            : '0 2px 8px rgba(0,0,0,0.1)'
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Clickable areas */}
+                    <div className="flex absolute inset-0 py-2">
+                      {difficultyCards.map((card, idx) => (
+                        <button
+                          key={card.id}
+                          onClick={() => setDifficulty(card.id)}
+                          className="flex-1 cursor-pointer"
+                        />
+                      ))}
+                    </div>
                   </div>
                   
-                  <div className="mt-6 text-center">
-                    <div className={`text-lg font-semibold transition-colors duration-300 ${
-                      difficulty === 'Easy' ? 'text-green-600' :
-                      difficulty === 'Medium' ? 'text-orange-600' :
-                      'text-purple-600'
+                  <div className="mt-8 text-center">
+                    <div className={`text-lg font-medium transition-colors duration-300 ${
+                      difficulty === 'Easy' ? 'text-emerald-700' :
+                      difficulty === 'Medium' ? 'text-amber-700' :
+                      'text-violet-700'
                     }`}>
-                      {difficulty === 'Easy' ? 'Warm-up Mode' :
-                       difficulty === 'Medium' ? 'Combat Ready' :
-                       'Elite Challenge'}
+                      {difficulty === 'Easy' ? 'Easy' :
+                       difficulty === 'Medium' ? 'Medium' :
+                       'Mixed'}
                     </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      {difficulty === 'Easy' ? 'Perfect for skill building' :
+                    <div className="text-sm text-gray-500 mt-1 transition-all duration-300">
+                      {difficulty === 'Easy' ? 'Beginner-friendly problems' :
                        difficulty === 'Medium' ? 'Balanced challenge level' :
-                       'Mixed difficulty for pros'}
+                       'Varied difficulty range'}
                     </div>
                   </div>
                 </div>
@@ -354,7 +381,7 @@ export default function Home(){
                       e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                   >
-                    <span className="relative z-10">DEPLOY STRATEGY</span>
+                    <span className="relative z-10">CONTINUE</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
                 </div>
@@ -364,12 +391,12 @@ export default function Home(){
             {/* Step 3: Topic Selection */}
             {currentStep === 3 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Combat Specialization</h2>
-                <p className="text-gray-600 mb-6">Choose your battlefield domains</p>
+                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Topic Selection</h2>
+                <p className="text-gray-600 mb-6">Choose problem categories</p>
                 
                 <div className="flex justify-between items-center mb-6">
                   <div className="text-sm text-gray-600">
-                    Selected: <span className="font-semibold text-blue-600">{topic === 'All' ? 'Any Domain' : topic}</span>
+                    Selected: <span className="font-semibold text-blue-600">{topic === 'All' ? 'Any Topic' : topic}</span>
                   </div>
                   <button 
                     onClick={() => {
@@ -379,13 +406,13 @@ export default function Home(){
                     }}
                     className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200 transform hover:scale-105 shadow-lg"
                   >
-                    🎲 Randomize
+                    Randomize
                   </button>
                 </div>
                 
                 <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto">
                   {[
-                    { id: 'All', label: 'Any Domain', icon: '🌍', color: 'from-gray-400 to-gray-600' },
+                    { id: 'All', label: 'Any Topic', color: 'from-gray-400 to-gray-600' },
                     { id: 'Array', label: 'Array', icon: '📊', color: 'from-blue-400 to-blue-600' },
                     { id: 'Linked List', label: 'Linked List', icon: '🔗', color: 'from-green-400 to-green-600' },
                     { id: 'Tree', label: 'Tree', icon: '🌳', color: 'from-emerald-400 to-emerald-600' },
@@ -408,7 +435,6 @@ export default function Home(){
                           : 'border-gray-200 hover:border-gray-300 bg-white/70 hover:shadow-lg'
                       }`}
                     >
-                      <div className="text-2xl mb-2">{t.icon}</div>
                       <div className={`text-xs ${topic === t.id ? 'text-white' : 'text-gray-700'}`}>{t.label}</div>
                       {topic === t.id && (
                         <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent pointer-events-none"></div>
@@ -452,7 +478,7 @@ export default function Home(){
                       e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                   >
-                    <span className="relative z-10">LOCK & LOAD</span>
+                    <span className="relative z-10">CONTINUE</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
                 </div>
@@ -462,8 +488,8 @@ export default function Home(){
             {/* Step 4: Duration */}
             {currentStep === 4 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Mission Timer</h2>
-                <p className="text-gray-600 mb-8">Set your battle duration</p>
+                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Duration</h2>
+                <p className="text-gray-600 mb-8">Set contest duration</p>
                 
                 <div className="flex flex-col items-center mb-8">
                   <div className="relative w-48 h-48 mb-6">
@@ -593,10 +619,10 @@ export default function Home(){
                       {loading ? (
                         <>
                           <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                          DEPLOYING...
+                          CREATING...
                         </>
                       ) : (
-                        '🚀 LAUNCH MISSION'
+                        'CREATE CONTEST'
                       )}
                     </span>
                     {!loading && (
