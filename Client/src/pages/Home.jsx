@@ -101,6 +101,17 @@ export default function Home(){
       <div className="flex justify-between items-center p-6 bg-gradient-to-r from-blue-50/80 to-purple-50/80 backdrop-blur-sm shadow-sm border-b border-gray-200">
         <div className="flex items-center gap-3">
           <span className="text-gray-900 font-semibold text-lg">DSA DUEL</span>
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-gray-400">/</span>
+            <span className="text-gray-600 text-sm font-medium">Create Contest</span>
+            <span className="text-gray-400">/</span>
+            <span className="text-blue-600 text-sm font-medium">
+              {currentStep === 1 ? 'Problem Count' :
+               currentStep === 2 ? 'Difficulty' :
+               currentStep === 3 ? 'Topics' :
+               'Duration'}
+            </span>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -493,8 +504,7 @@ export default function Home(){
             {/* Step 4: Duration */}
             {currentStep === 4 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Duration</h2>
-                <p className="text-gray-600 mb-8">Set contest duration</p>
+                <p className="text-2xl font-semibold text-gray-900 mb-8">Set contest duration</p>
                 
                 <div className="flex flex-col items-center mb-8">
                   <div className="relative w-48 h-48 mb-6">
@@ -535,25 +545,51 @@ export default function Home(){
                   </div>
                   
                   <div className="w-full max-w-md">
-                    <input
-                      type="range"
-                      min={10}
-                      max={240}
-                      step={5}
-                      value={durationMin}
-                      onChange={e => setDurationMin(Number(e.target.value))}
-                      className="w-full h-3 bg-gradient-to-r from-blue-200 to-purple-200 rounded-lg appearance-none cursor-pointer slider"
-                      style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #8b5cf6 ${(durationMin - 10) / (240 - 10) * 100}%, #e5e7eb ${(durationMin - 10) / (240 - 10) * 100}%, #e5e7eb 100%)`
-                      }}
-                    />
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min={10}
+                        max={240}
+                        step={5}
+                        value={durationMin}
+                        onChange={e => setDurationMin(Number(e.target.value))}
+                        className="w-full h-3 rounded-lg appearance-none cursor-pointer"
+                        style={{
+                          background: `linear-gradient(to right, #3b82f6 0%, #8b5cf6 ${((durationMin - 10) / (240 - 10)) * 100}%, #e5e7eb ${((durationMin - 10) / (240 - 10)) * 100}%, #e5e7eb 100%)`,
+                          WebkitAppearance: 'none',
+                          outline: 'none'
+                        }}
+                      />
+                      <style jsx>{`
+                        input[type="range"]::-webkit-slider-thumb {
+                          -webkit-appearance: none;
+                          width: 28px;
+                          height: 28px;
+                          border-radius: 50%;
+                          background: #ffffff;
+                          border: 3px solid #3b82f6;
+                          cursor: pointer;
+                          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        }
+                        input[type="range"]::-moz-range-thumb {
+                          width: 28px;
+                          height: 28px;
+                          border-radius: 50%;
+                          background: #ffffff;
+                          border: 3px solid #3b82f6;
+                          cursor: pointer;
+                          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                          border: none;
+                        }
+                      `}</style>
+                    </div>
                     <div className="flex justify-between text-xs text-gray-500 mt-3">
                       <span className="flex flex-col items-center">
                         <span>10m</span>
                         <span className="text-xs text-gray-400">Quick</span>
                       </span>
                       <span className="flex flex-col items-center">
-                        <span>90m</span>
+                        <span>120m</span>
                         <span className="text-xs text-gray-400">Standard</span>
                       </span>
                       <span className="flex flex-col items-center">
@@ -564,15 +600,27 @@ export default function Home(){
                   </div>
                   
                   <div className="mt-6 text-center">
-                    <div className="text-lg font-semibold text-gray-900 mb-1">
-                      {durationMin <= 30 ? '⚡ Lightning Round' : 
-                       durationMin <= 90 ? '⚔️ Battle Mode' : 
-                       durationMin <= 150 ? '🏆 Championship' : '🔥 Ultimate Challenge'}
-                    </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-lg font-semibold text-gray-900 mb-3">
                       {durationMin <= 30 ? 'Fast-paced coding sprint' : 
                        durationMin <= 90 ? 'Balanced challenge time' : 
                        durationMin <= 150 ? 'Extended problem solving' : 'Marathon coding session'}
+                    </div>
+                    
+                    {/* Manual input */}
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-sm text-gray-500">Or enter manually:</span>
+                      <input
+                        type="number"
+                        min={10}
+                        max={240}
+                        value={durationMin}
+                        onChange={e => {
+                          const val = Math.max(10, Math.min(240, Number(e.target.value) || 10))
+                          setDurationMin(val)
+                        }}
+                        className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 text-center"
+                      />
+                      <span className="text-sm text-gray-500">min</span>
                     </div>
                   </div>
                 </div>
