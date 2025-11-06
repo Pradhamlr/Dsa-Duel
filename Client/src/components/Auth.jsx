@@ -79,10 +79,12 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
         : 'linear-gradient(135deg, rgba(99,102,241,0.22) 0%, rgba(236,72,153,0.16) 50%, rgba(253,224,71,0.12) 100%)'
     }}>
       {/* Header */}
-      <div className="flex justify-between items-center p-6 shadow-sm border-b border-gray-100">
+      <div className="flex justify-between items-center px-8 py-6 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm">
         <div className="flex items-center gap-3">
-          
-          <span className="text-gray-900 font-semibold text-lg">DSA DUEL</span>
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">D</span>
+          </div>
+          <span className="text-gray-900 font-semibold text-xl tracking-tight">DSA DUEL</span>
         </div>
         
         {/* Breadcrumb */}
@@ -120,14 +122,15 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center px-6 pt-8" style={{ minHeight: 'calc(100vh - 160px)' }}>
-        <div className="bg-white rounded-xl shadow-lg ring-1 ring-gray-100 p-8 w-full max-w-md">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-              {isLogin ? 'Log In to DSA Duel' : 'Sign up to DSA Duel'}
+      <div className="flex items-center justify-center px-8 pt-12" style={{ minHeight: 'calc(100vh - 160px)' }}>
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl ring-1 ring-gray-200/50 p-10 w-full max-w-md">
+          <div className="text-center mb-8">
+            
+            <h1 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">
+              {isLogin ? 'Welcome back' : 'Join DSA Duel'}
             </h1>
-            <p className="text-gray-500 text-sm">
-              Quick & Simple way to practice competitive programming
+            <p className="text-gray-600">
+              {isLogin ? 'Sign in to continue your coding journey' : 'Start your competitive programming adventure'}
             </p>
           </div>
 
@@ -147,7 +150,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
                   placeholder="John"
                   required
                 />
@@ -162,7 +165,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
                 placeholder="johndoe@example.com"
                 required
               />
@@ -177,7 +180,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
                   placeholder="johndoe"
                   required
                 />
@@ -193,7 +196,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg bg-white transition-shadow duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+                  className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
                   placeholder="••••••••••"
                   required
                   minLength={6}
@@ -283,23 +286,40 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
             <button
               type="submit"
               disabled={loading}
-              // inline style to guarantee black/white appearance
               style={{
                 width: '100%',
-                backgroundColor: '#000000',
+                backgroundColor: loading ? '#666666' : '#000000',
                 color: '#ffffff',
-                padding: '12px 16px',
-                borderRadius: 10,
-                fontWeight: 600,
+                padding: '8px 48px',
+                borderRadius: '10px',
+                fontWeight: '600',
                 border: 'none',
-                boxShadow: '0 1px 6px rgba(0,0,0,0.12)',
-                marginTop: 18,
-                cursor: loading ? 'default' : 'pointer'
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                marginTop: '24px',
+                opacity: loading ? '0.8' : '1'
               }}
-              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Please wait...' : (isLogin ? 'PROCEED' : 'CREATE AN ACCOUNT')}
+              {loading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    border: '2px solid #ffffff',
+                    borderTop: '2px solid transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                  Please wait...
+                </div>
+              ) : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
+            <style jsx>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
           </form>
         </div>
       </div>

@@ -7,13 +7,41 @@ const PlaySVG = ({ size = 24 }) => (
   </svg>
 )
 
+const ContestIcon = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+  </svg>
+)
+
+const TrackingIcon = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 3V21H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 16L12 11L16 15L21 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="7" cy="16" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <circle cx="12" cy="11" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <circle cx="16" cy="15" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+  </svg>
+)
+
+const CodeIcon = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 18L22 12L16 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M8 6L2 12L8 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M14 4L10 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
 export default function Landing({ onNavigate }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Navigation */}
-      <nav className="flex justify-between items-center p-6 relative z-10 shadow-sm border-b border-gray-100">
+      <nav className="flex justify-between items-center px-8 py-6 relative z-10 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="text-gray-900 font-semibold text-lg">DSA DUEL</span>
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">D</span>
+          </div>
+          <span className="text-gray-900 font-semibold text-xl tracking-tight">DSA DUEL</span>
         </div>
         
         {/* Breadcrumb */}
@@ -76,29 +104,44 @@ export default function Landing({ onNavigate }) {
       </nav>
 
       {/* Hero Section */}
-      <div className="flex items-center justify-between px-6 py-12 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between px-8 py-20 max-w-7xl mx-auto">
         {/* Left Content */}
         <div className="flex-1 max-w-2xl">
-          <h1 className="text-6xl font-bold text-gray-900 leading-tight mb-6">
+          <h1 className="text-7xl font-bold text-gray-900 leading-tight mb-8 tracking-tight">
             Code that
             <br />
-            <span className="text-indigo-600">inspires you</span>
+            <span className="text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text">inspires you</span>
           </h1>
           
-          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+          <p className="text-xl text-gray-600 mb-12 leading-relaxed max-w-xl">
             Master data structures and algorithms through competitive programming. 
             Challenge yourself, compete with others, and build the skills that matter.
           </p>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={() => onNavigate('signup')}
+              style={{
+                backgroundColor: '#000000',
+                color: '#ffffff',
+                padding: '8px 48px',
+                borderRadius: '10px',
+                fontWeight: '600',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                cursor: 'pointer'
+              }}
+            >
+              Get Started
+            </button>
             <button 
               onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}
               className="flex items-center gap-3 text-gray-700 hover:text-gray-900 font-medium transition-colors group"
             >
-              <div className="w-12 h-12 border-2 border-gray-300 group-hover:border-gray-400 rounded-full flex items-center justify-center transition-colors">
+              <div className="w-12 h-12 border-2 border-gray-300 group-hover:border-gray-400 rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105">
                 <PlaySVG size={20} />
               </div>
-              <span className="text-lg">DISCOVER</span>
+              <span className="text-lg">Watch Demo</span>
             </button>
           </div>
         </div>
@@ -129,60 +172,100 @@ export default function Landing({ onNavigate }) {
       </div>
 
       {/* Features Section */}
-      <div id="features" className="px-6 py-16 max-w-7xl mx-auto">
+      <div id="features" className="px-8 py-24 max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4 tracking-tight">Everything you need to excel</h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">Powerful tools and features designed to accelerate your coding journey</p>
+        </div>
+        <style jsx>{`
+          @keyframes float1 {
+            0%, 100% { transform: rotateY(-2deg) rotateX(1deg); }
+            50% { transform: rotateY(2deg) rotateX(-1deg); }
+          }
+          @keyframes float2 {
+            0%, 100% { transform: rotateY(1deg) rotateX(-2deg); }
+            50% { transform: rotateY(-1deg) rotateX(2deg); }
+          }
+          @keyframes float3 {
+            0%, 100% { transform: rotateY(-1deg) rotateX(2deg); }
+            50% { transform: rotateY(1deg) rotateX(-1deg); }
+          }
+          .float-1 { animation: float1 6s ease-in-out infinite; }
+          .float-2 { animation: float2 7s ease-in-out infinite; }
+          .float-3 { animation: float3 8s ease-in-out infinite; }
+          .float-1:hover, .float-2:hover, .float-3:hover { animation-play-state: paused; }
+        `}</style>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Real-time Contests Card */}
-          <div className="group h-64 [perspective:1000px] cursor-pointer">
+          <div className="group w-full h-64 mx-auto [perspective:1000px] cursor-pointer p-1 rounded-2xl bg-gradient-to-br from-blue-50/20 to-indigo-50/30 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 transition-shadow duration-300">
             <div className="relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
               {/* Front Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 shadow-lg">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-200 to-indigo-300 rounded-2xl flex items-center justify-center mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-lg shadow-sm"></div>
+              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-white to-blue-50/30 border border-gray-100 shadow-sm p-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mb-6">
+                  <ContestIcon size={28} className="text-blue-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-indigo-900 text-center">Real-time Contests</h3>
+                <h3 className="text-lg font-semibold text-gray-900 text-center mb-3">Real-time Contests</h3>
+                <p className="text-sm text-gray-600 text-center leading-relaxed">Hover to learn more</p>
               </div>
               {/* Back Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-indigo-500 text-white [transform:rotateY(180deg)] p-8">
-                <p className="text-center text-lg font-semibold italic leading-loose tracking-wider">Compete with developers worldwide in live coding challenges</p>
+              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-gray-600 to-gray-700 text-white [transform:rotateY(180deg)] p-8">
+                <p className="text-center text-base font-medium leading-relaxed">Live coding competitions with global developers</p>
               </div>
             </div>
           </div>
 
           {/* Skill Tracking Card */}
-          <div className="group h-64 [perspective:1000px] cursor-pointer">
+          <div className="group w-full h-64 mx-auto [perspective:1000px] cursor-pointer p-1 rounded-2xl bg-gradient-to-br from-emerald-50/20 to-teal-50/30 shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 transition-shadow duration-300">
             <div className="relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
               {/* Front Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-green-50 to-green-100 border border-green-200 shadow-lg">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-200 to-green-300 rounded-2xl flex items-center justify-center mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-700 rounded-lg shadow-sm"></div>
+              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-white to-emerald-50/30 border border-gray-100 shadow-sm p-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-2xl flex items-center justify-center mb-6">
+                  <TrackingIcon size={28} className="text-emerald-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-green-900 text-center">Skill Tracking</h3>
+                <h3 className="text-lg font-semibold text-gray-900 text-center mb-3">Skill Tracking</h3>
+                <p className="text-sm text-gray-600 text-center leading-relaxed">Hover to learn more</p>
               </div>
               {/* Back Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-green-500 text-white [transform:rotateY(180deg)] p-8">
-                <p className="text-center text-lg font-semibold italic leading-loose tracking-wider">Monitor your progress and climb the global leaderboard</p>
+              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500 to-slate-600 text-white [transform:rotateY(180deg)] p-8">
+                <p className="text-center text-base font-medium leading-relaxed">Track progress and climb global rankings</p>
               </div>
             </div>
           </div>
 
           {/* LeetCode Integration Card */}
-          <div className="group h-64 [perspective:1000px] cursor-pointer">
+          <div className="group w-full h-64 mx-auto [perspective:1000px] cursor-pointer p-1 rounded-2xl bg-gradient-to-br from-purple-50/20 to-violet-50/30 shadow-lg shadow-purple-500/10 hover:shadow-xl hover:shadow-purple-500/20 transition-shadow duration-300">
             <div className="relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
               {/* Front Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 shadow-lg">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-200 to-purple-300 rounded-2xl flex items-center justify-center mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg shadow-sm"></div>
+              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-white to-purple-50/30 border border-gray-100 shadow-sm p-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-50 to-violet-100 rounded-2xl flex items-center justify-center mb-6">
+                  <CodeIcon size={28} className="text-purple-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-purple-900 text-center">LeetCode Integration</h3>
+                <h3 className="text-lg font-semibold text-gray-900 text-center mb-3">LeetCode Integration</h3>
+                <p className="text-sm text-gray-600 text-center leading-relaxed">Hover to learn more</p>
               </div>
               {/* Back Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-purple-400 to-purple-500 text-white [transform:rotateY(180deg)] p-8">
-                <p className="text-center text-lg font-semibold italic leading-loose tracking-wider">Practice with curated problems from LeetCode platform</p>
+              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-500 to-zinc-600 text-white [transform:rotateY(180deg)] p-8">
+                <p className="text-center text-base font-medium leading-relaxed">Curated coding challenges and solutions</p>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-br from-gray-50 to-gray-100 border-t border-gray-200/50 py-16">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">D</span>
+              </div>
+              <span className="text-gray-900 font-semibold text-xl tracking-tight">DSA DUEL</span>
+            </div>
+            <p className="text-gray-600 text-sm">© 2024 DSA Duel. Crafted with precision.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

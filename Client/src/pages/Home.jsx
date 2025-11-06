@@ -96,21 +96,43 @@ export default function Home(){
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 animate-fadeIn">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-white to-indigo-50/20 animate-fadeIn font-inter relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-100/20 to-purple-100/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-100/20 to-indigo-100/20 rounded-full blur-3xl"></div>
+      </div>
       {/* Navbar */}
-      <div className="flex justify-between items-center p-6 bg-gradient-to-r from-blue-50/80 to-purple-50/80 backdrop-blur-sm shadow-sm border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <span className="text-gray-900 font-semibold text-lg">DSA DUEL</span>
-          <div className="flex items-center gap-2 ml-4">
+      <div className="relative z-20 flex justify-between items-center px-8 py-6 bg-white/80 backdrop-blur-xl border-b border-black/6">
+        <div className="flex items-center gap-6">
+          <span className="text-gray-900 font-semibold text-xl tracking-tight">DSA DUEL</span>
+          <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-400">/</span>
-            <span className="text-gray-600 text-sm font-medium">Create Contest</span>
+            <span className="text-gray-600 font-medium">Create Contest</span>
             <span className="text-gray-400">/</span>
-            <span className="text-blue-600 text-sm font-medium">
+            <span className="text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-medium">
               {currentStep === 1 ? 'Problem Count' :
                currentStep === 2 ? 'Difficulty' :
                currentStep === 3 ? 'Topics' :
                'Duration'}
             </span>
+          </div>
+        </div>
+        
+        {/* Welcome Message */}
+        <div className="absolute left-1/2 transform -translate-x-1/2">
+          <div className="text-center">
+            <div className="text-sm text-gray-500 font-medium">Welcome back,</div>
+            <div className="text-lg font-semibold text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text">
+              {(() => {
+                try {
+                  const user = JSON.parse(localStorage.getItem('duel_user') || '{}')
+                  return user.username || user.name || 'Developer'
+                } catch {
+                  return 'Developer'
+                }
+              })()}
+            </div>
           </div>
         </div>
         
@@ -171,97 +193,117 @@ export default function Home(){
         </div>
       </div>
 
-      <div className="flex items-center justify-center p-4 sm:p-6" style={{ minHeight: 'calc(100vh - 80px)' }}>
-        <div className="w-full max-w-4xl flex flex-col md:flex-row gap-8">
-          {/* Left Sidebar */}
-          <div className="hidden md:block w-80 h-86 bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 flex items-center my-auto">
-            <div className="relative w-full">
-              {steps.map((step, idx) => (
-                <div key={step.id} className="relative">
-                  <div className="flex items-start gap-4 py-4">
-                    <div className="relative z-10">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium shadow-lg transition-all duration-300 ${
-                        currentStep >= step.id ? 'bg-blue-600 text-white shadow-blue-200' :
-                        'bg-gray-200 text-gray-500 shadow-gray-200'
-                      }`}>
-                        {step.id}
+      <div className="flex items-center justify-center px-8 py-12" style={{ minHeight: 'calc(100vh - 88px)' }}>
+        <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-12">
+          {/* Enhanced Sidebar */}
+          <div className="hidden lg:block w-80">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-black/6 sticky top-8">
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Contest Setup</h3>
+                <p className="text-sm text-gray-500">Step {currentStep} of {steps.length}</p>
+              </div>
+              
+              <div className="relative">
+                {steps.map((step, idx) => (
+                  <div key={step.id} className="relative">
+                    <div className="flex items-center gap-4 py-4">
+                      <div className="relative z-10">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${
+                          currentStep >= step.id 
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25' 
+                            : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
+                        }`}>
+                          {currentStep > step.id ? (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : step.id}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className={`font-medium text-sm transition-colors duration-300 ${
+                          currentStep >= step.id ? 'text-gray-900' : 'text-gray-500'
+                        }`}>
+                          {step.title}
+                        </div>
+                        <div className={`text-xs mt-1 transition-colors duration-300 ${
+                          currentStep >= step.id ? 'text-gray-600' : 'text-gray-400'
+                        }`}>
+                          {step.desc}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex-1 pt-2">
-                      <div className={`font-medium mb-1 ${
-                        currentStep >= step.id ? 'text-gray-900' : 'text-gray-600'
-                      }`}>
-                        {step.title}
+                    
+                    {/* Enhanced Progress Line */}
+                    {idx < steps.length - 1 && (
+                      <div className="absolute left-5 top-14 w-0.5 h-8 -translate-x-0.5">
+                        <div className="w-full h-full bg-gray-200 rounded-full"></div>
+                        <div className={`absolute top-0 left-0 w-full rounded-full transition-all duration-700 ease-out ${
+                          currentStep > step.id ? 'h-full bg-gradient-to-b from-indigo-600 to-purple-600' :
+                          currentStep === step.id ? 'h-1/2 bg-gradient-to-b from-indigo-600 to-purple-600' :
+                          'h-0 bg-gradient-to-b from-indigo-600 to-purple-600'
+                        }`}></div>
                       </div>
-                    </div>
+                    )}
                   </div>
-                  
-                  {/* Progress Line */}
-                  {idx < steps.length - 1 && (
-                    <div className="absolute left-5 top-14 w-0.5 h-12 -translate-x-0.5">
-                      <div className="w-full h-full bg-gray-200 rounded-full"></div>
-                      <div className={`absolute top-0 left-0 w-full rounded-full transition-all duration-500 ease-in-out ${
-                        currentStep > step.id ? 'h-full bg-gradient-to-b from-blue-500 to-blue-600 shadow-sm' :
-                        currentStep === step.id ? 'h-1/2 bg-gradient-to-b from-blue-500 to-blue-600 shadow-sm' :
-                        'h-0 bg-gradient-to-b from-blue-500 to-blue-600'
-                      }`}></div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
+          {/* Enhanced Main Content */}
+          <div className="flex-1 min-w-0 relative z-10">
 
             {/* Step 1: Problem Count */}
             {currentStep === 1 && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <p className="text-2xl font-semibold mb-8 text-gray-900">Pick a pace that fits your focus right now</p>
+              <div className="bg-white rounded-2xl p-12 shadow-sm border border-black/6 animate-fadeIn">
+                <div className="text-center mb-12">
+                  <h2 className="text-3xl font-semibold text-gray-900 mb-4 tracking-tight">Choose Your Challenge</h2>
+                  <p className="text-gray-600 text-lg">Select the number of problems for your contest</p>
+                </div>
                 
-                <div className="flex justify-center">
-                  <div className="inline-flex bg-gray-100 rounded-2xl p-1.5">
+                <div className="flex justify-center mb-16">
+                  <div className="grid grid-cols-3 gap-6">
                     {[
-                      { count: 3, label: 'Short Session' },
-                      { count: 4, label: 'Standard Match' },
-                      { count: 5, label: 'Focused Run' }
+                      { count: 3, label: 'Quick Sprint', desc: '15-30 min' },
+                      { count: 4, label: 'Standard', desc: '30-45 min' },
+                      { count: 5, label: 'Deep Focus', desc: '45-60 min' }
                     ].map(option => (
                       <button
                         key={option.count}
                         onClick={() => setNum(option.count)}
-                        className={`relative px-10 py-5 rounded-xl transition-all duration-300 ease-out group ${
+                        className={`relative p-8 rounded-2xl border-2 transition-all duration-300 group ${
                           num === option.count 
-                            ? 'bg-white shadow-lg transform scale-105' 
-                            : 'hover:bg-white/50 hover:shadow-md hover:transform hover:scale-102'
+                            ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50 shadow-lg shadow-indigo-500/20 scale-105' 
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md hover:scale-102'
                         }`}
-                        style={{
-                          boxShadow: num === option.count 
-                            ? '0 8px 25px rgba(0,0,0,0.1), 0 0 0 1px rgba(59,130,246,0.1)' 
-                            : undefined
-                        }}
                       >
-                        <div className="flex flex-col items-center">
-                          <div className={`text-2xl font-semibold mb-1 transition-colors duration-200 ${
-                            num === option.count ? 'text-blue-600' : 'text-gray-700 group-hover:text-gray-900'
+                        <div className="text-center">
+                          <div className={`text-4xl font-bold mb-3 transition-colors duration-300 ${
+                            num === option.count ? 'text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text' : 'text-gray-700'
                           }`}>
                             {option.count}
                           </div>
-                          <div className={`text-xs font-medium transition-colors duration-200 ${
-                            num === option.count ? 'text-blue-500' : 'text-gray-500 group-hover:text-gray-600'
+                          <div className={`text-sm font-semibold mb-2 transition-colors duration-300 ${
+                            num === option.count ? 'text-gray-900' : 'text-gray-600'
                           }`}>
                             {option.label}
                           </div>
+                          <div className={`text-xs transition-colors duration-300 ${
+                            num === option.count ? 'text-gray-600' : 'text-gray-500'
+                          }`}>
+                            {option.desc}
+                          </div>
                         </div>
                         {num === option.count && (
-                          <div className="absolute inset-0 rounded-xl bg-blue-50/50 animate-pulse"></div>
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 animate-pulse"></div>
                         )}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex justify-end mt-8">
+                <div className="flex justify-end">
                   <button 
                     onClick={() => setCurrentStep(2)}
                     style={{
@@ -283,8 +325,11 @@ export default function Home(){
 
             {/* Step 2: Difficulty Level */}
             {currentStep === 2 && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <p className="text-2xl font-semibold mb-2 text-gray-900 mb-8">Select problem difficulty</p>
+              <div className="bg-white rounded-2xl p-12 shadow-sm border border-black/6 animate-fadeIn">
+                <div className="text-center mb-12">
+                  <h2 className="text-3xl font-semibold text-gray-900 mb-4 tracking-tight">Set Difficulty Level</h2>
+                  <p className="text-gray-600 text-lg">Choose the challenge level for your problems</p>
+                </div>
                 
                 <div className="relative">
                   <div className="relative w-full max-w-lg mx-auto">
