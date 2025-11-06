@@ -27,6 +27,7 @@ export default function Home(){
   const [num, setNum] = useState(5)
   const [difficulty, setDifficulty] = useState('mixed')
   const [topic, setTopic] = useState('All')
+  const [searchTerm, setSearchTerm] = useState('')
   const [durationMin, setDurationMin] = useState(90)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -252,7 +253,6 @@ export default function Home(){
                 <div className="flex justify-end mt-8">
                   <button 
                     onClick={() => setCurrentStep(2)}
-                    className="group relative overflow-hidden"
                     style={{
                       backgroundColor: '#000000',
                       color: '#ffffff',
@@ -261,20 +261,10 @@ export default function Home(){
                       fontWeight: '600',
                       border: 'none',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.transform = 'translateY(-2px)'
-                      e.target.style.boxShadow = '0 8px 20px rgba(0,0,0,0.2)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.transform = 'translateY(0)'
-                      e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+                      cursor: 'pointer'
                     }}
                   >
-                    <span className="relative z-10">CONTINUE</span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    CONTINUE
                   </button>
                 </div>
               </div>
@@ -283,44 +273,51 @@ export default function Home(){
             {/* Step 2: Difficulty Level */}
             {currentStep === 2 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Difficulty Level</h2>
-                <p className="text-gray-600 mb-8">Select problem difficulty</p>
+                <p className="text-2xl font-semibold mb-2 text-gray-900 mb-8">Select problem difficulty</p>
                 
                 <div className="relative">
                   <div className="relative w-full max-w-lg mx-auto">
                     {/* Track with subtle gradient */}
-                    <div className="h-1.5 bg-gradient-to-r from-emerald-100 via-amber-100 to-violet-100 rounded-full relative">
+                    <div className="h-1.5 bg-gradient-to-r from-emerald-200 via-orange-200 to-violet-200 rounded-full relative">
                       {/* Tick marks */}
                       {difficultyCards.map((card, idx) => (
                         <div
                           key={card.id}
                           className={`absolute top-1/2 w-2 h-2 rounded-full transform -translate-y-1/2 transition-all duration-300 ${
                             difficulty === card.id
-                              ? 'bg-gray-700 scale-125 shadow-sm'
-                              : 'bg-gray-300'
+                              ? 'scale-125 shadow-sm'
+                              : ''
                           }`}
-                          style={{ left: `calc(${idx * 50}% - 4px)` }}
+                          style={{ 
+                            left: `calc(${idx * 50}% - 4px)`,
+                            backgroundColor: difficulty === card.id 
+                              ? (card.id === 'Easy' ? '#059669' : card.id === 'Medium' ? '#ea580c' : '#7c3aed')
+                              : '#9ca3af'
+                          }}
                         />
                       ))}
                       
                       {/* Slider thumb */}
                       <div
-                        className={`absolute top-1/2 w-5 h-5 bg-white rounded-full shadow-md transform -translate-y-1/2 transition-all duration-300 ease-out border border-gray-200 ${
+                        className={`absolute top-1/2 w-5 h-5 bg-white rounded-full shadow-md transform -translate-y-1/2 transition-all duration-300 ease-out border ${
                           difficultyCards.some(card => card.id === difficulty) ? 'scale-110 shadow-lg' : ''
                         }`}
                         style={{
                           left: `calc(${difficultyCards.findIndex(card => card.id === difficulty) * 50}% - 10px)`,
+                          borderColor: difficulty === 'Easy' ? '#059669' : 
+                                      difficulty === 'Medium' ? '#ea580c' : '#7c3aed',
                           boxShadow: difficultyCards.some(card => card.id === difficulty) 
-                            ? '0 4px 16px rgba(0,0,0,0.12), 0 0 0 2px rgba(99,102,241,0.08)' 
+                            ? `0 4px 16px rgba(0,0,0,0.12), 0 0 0 2px ${difficulty === 'Easy' ? 'rgba(5,150,105,0.15)' : 
+                                                                         difficulty === 'Medium' ? 'rgba(234,88,12,0.15)' : 'rgba(124,58,237,0.15)'}` 
                             : '0 2px 8px rgba(0,0,0,0.1)'
                         }}
                       />
                     </div>
                     
                     {/* Clickable areas */}
-                    <div className="flex absolute inset-0 py-2">
+                    <div className="flex absolute inset-0 -my-4">
                       {difficultyCards.map((card, idx) => (
-                        <button
+                        <div
                           key={card.id}
                           onClick={() => setDifficulty(card.id)}
                           className="flex-1 cursor-pointer"
@@ -331,9 +328,9 @@ export default function Home(){
                   
                   <div className="mt-8 text-center">
                     <div className={`text-lg font-medium transition-colors duration-300 ${
-                      difficulty === 'Easy' ? 'text-emerald-700' :
-                      difficulty === 'Medium' ? 'text-amber-700' :
-                      'text-violet-700'
+                      difficulty === 'Easy' ? 'text-emerald-600' :
+                      difficulty === 'Medium' ? 'text-orange-600' :
+                      'text-violet-600'
                     }`}>
                       {difficulty === 'Easy' ? 'Easy' :
                        difficulty === 'Medium' ? 'Medium' :
@@ -350,7 +347,7 @@ export default function Home(){
                 <div className="flex justify-between mt-8">
                   <button 
                     onClick={() => setCurrentStep(1)}
-                    className="p-3 rounded-lg hover:bg-gray-100 transition-all duration-200 flex items-center justify-center group"
+                    className="p-3 rounded-lg flex items-center justify-center"
                     style={{
                       border: '1px solid #e5e7eb',
                       cursor: 'pointer'
@@ -360,7 +357,6 @@ export default function Home(){
                   </button>
                   <button 
                     onClick={() => setCurrentStep(3)}
-                    className="group relative overflow-hidden"
                     style={{
                       backgroundColor: '#000000',
                       color: '#ffffff',
@@ -369,20 +365,10 @@ export default function Home(){
                       fontWeight: '600',
                       border: 'none',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.transform = 'translateY(-2px)'
-                      e.target.style.boxShadow = '0 8px 20px rgba(0,0,0,0.2)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.transform = 'translateY(0)'
-                      e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+                      cursor: 'pointer'
                     }}
                   >
-                    <span className="relative z-10">CONTINUE</span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    CONTINUE
                   </button>
                 </div>
               </div>
@@ -391,12 +377,21 @@ export default function Home(){
             {/* Step 3: Topic Selection */}
             {currentStep === 3 && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200 animate-slideIn">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-900">Topic Selection</h2>
-                <p className="text-gray-600 mb-6">Choose problem categories</p>
+                <p className="text-2xl font-medium text-gray-900 mb-8">Choose problem categories to focus on</p>
                 
-                <div className="flex justify-between items-center mb-6">
-                  <div className="text-sm text-gray-600">
-                    Selected: <span className="font-semibold text-blue-600">{topic === 'All' ? 'Any Topic' : topic}</span>
+                {/* Search and Actions */}
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="flex-1 relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input 
+                      type="text" 
+                      placeholder="Search topics..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all"
+                    />
                   </div>
                   <button 
                     onClick={() => {
@@ -404,50 +399,71 @@ export default function Home(){
                       const randomTopic = topics[Math.floor(Math.random() * topics.length)]
                       setTopic(randomTopic)
                     }}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-200 transform hover:scale-105 shadow-lg"
+                    className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all"
                   >
                     Randomize
                   </button>
                 </div>
                 
-                <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto">
-                  {[
-                    { id: 'All', label: 'Any Topic', color: 'from-gray-400 to-gray-600' },
-                    { id: 'Array', label: 'Array', icon: '📊', color: 'from-blue-400 to-blue-600' },
-                    { id: 'Linked List', label: 'Linked List', icon: '🔗', color: 'from-green-400 to-green-600' },
-                    { id: 'Tree', label: 'Tree', icon: '🌳', color: 'from-emerald-400 to-emerald-600' },
-                    { id: 'Graph', label: 'Graph', icon: '🕸️', color: 'from-purple-400 to-purple-600' },
-                    { id: 'String', label: 'String', icon: '📝', color: 'from-yellow-400 to-yellow-600' },
-                    { id: 'DP', label: 'DP', icon: '⚡', color: 'from-red-400 to-red-600' },
-                    { id: 'Stack/Queue', label: 'Stack/Queue', icon: '📦', color: 'from-indigo-400 to-indigo-600' },
-                    { id: 'Matrix', label: 'Matrix', icon: '🔢', color: 'from-teal-400 to-teal-600' },
-                    { id: 'Hash / Map', label: 'Hash/Map', icon: '🗺️', color: 'from-orange-400 to-orange-600' },
-                    { id: 'Binary Search', label: 'Binary Search', icon: '🔍', color: 'from-pink-400 to-pink-600' },
-                    { id: 'Two Pointers', label: 'Two Pointers', icon: '👉', color: 'from-cyan-400 to-cyan-600' },
-                    { id: 'Other', label: 'Other', icon: '🎯', color: 'from-violet-400 to-violet-600' }
-                  ].map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTopic(t.id)}
-                      className={`group relative p-4 rounded-xl border-2 text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
-                        topic === t.id 
-                          ? `border-transparent shadow-xl bg-gradient-to-br ${t.color} text-white scale-105` 
-                          : 'border-gray-200 hover:border-gray-300 bg-white/70 hover:shadow-lg'
-                      }`}
-                    >
-                      <div className={`text-xs ${topic === t.id ? 'text-white' : 'text-gray-700'}`}>{t.label}</div>
-                      {topic === t.id && (
-                        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent pointer-events-none"></div>
-                      )}
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/0 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-                    </button>
-                  ))}
-                </div>
+                {(() => {
+                  const allTopics = [
+                    { id: 'All', label: 'Any Topic', icon: '∞', category: 'Core' },
+                    { id: 'Array', label: 'Array', icon: '[]', category: 'Core' },
+                    { id: 'String', label: 'String', icon: 'Aa', category: 'Core' },
+                    { id: 'Linked List', label: 'Linked List', icon: '→', category: 'Core' },
+                    { id: 'Tree', label: 'Tree', icon: '🌳', category: 'Advanced' },
+                    { id: 'Graph', label: 'Graph', icon: '◉', category: 'Advanced' },
+                    { id: 'DP', label: 'Dynamic Programming', icon: '⚡', category: 'Advanced' },
+                    { id: 'Binary Search', label: 'Binary Search', icon: '🔍', category: 'Advanced' },
+                    { id: 'Stack/Queue', label: 'Stack/Queue', icon: '📦', category: 'Specialized' },
+                    { id: 'Matrix', label: 'Matrix', icon: '▦', category: 'Specialized' },
+                    { id: 'Hash / Map', label: 'Hash/Map', icon: '#', category: 'Specialized' },
+                    { id: 'Two Pointers', label: 'Two Pointers', icon: '↔', category: 'Specialized' },
+                    { id: 'Other', label: 'Other', icon: '•••', category: 'Specialized' }
+                  ]
+                  
+                  const filteredTopics = allTopics.filter(t => 
+                    t.label.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  
+                  const groupedTopics = filteredTopics.reduce((acc, topic) => {
+                    if (!acc[topic.category]) acc[topic.category] = []
+                    acc[topic.category].push(topic)
+                    return acc
+                  }, {})
+                  
+                  return Object.entries(groupedTopics).map(([category, topics]) => (
+                    <div key={category} className="mb-6">
+                      <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">{category}</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {topics.map(t => (
+                          <button
+                            key={t.id}
+                            onClick={() => setTopic(t.id)}
+                            className={`group relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                              topic === t.id 
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 scale-105' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md hover:-translate-y-0.5'
+                            }`}
+                          >
+                            <span className="text-xs opacity-75">{t.icon}</span>
+                            <span>{t.label}</span>
+                            {topic === t.id && (
+                              <div className="absolute inset-0 rounded-full bg-white/20 animate-ping"></div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                })()}
+                
+                <div className="mb-2"></div>
 
-                <div className="flex justify-between mt-8">
+                <div className="flex justify-between">
                   <button 
                     onClick={() => setCurrentStep(2)}
-                    className="p-3 rounded-lg hover:bg-gray-100 transition-all duration-200 flex items-center justify-center group"
+                    className="p-3 rounded-lg flex items-center justify-center"
                     style={{
                       border: '1px solid #e5e7eb',
                       cursor: 'pointer'
@@ -457,7 +473,6 @@ export default function Home(){
                   </button>
                   <button 
                     onClick={() => setCurrentStep(4)}
-                    className="group relative overflow-hidden"
                     style={{
                       backgroundColor: '#000000',
                       color: '#ffffff',
@@ -466,20 +481,10 @@ export default function Home(){
                       fontWeight: '600',
                       border: 'none',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.transform = 'translateY(-2px)'
-                      e.target.style.boxShadow = '0 8px 20px rgba(0,0,0,0.2)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.transform = 'translateY(0)'
-                      e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+                      cursor: 'pointer'
                     }}
                   >
-                    <span className="relative z-10">CONTINUE</span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    CONTINUE
                   </button>
                 </div>
               </div>
@@ -575,7 +580,7 @@ export default function Home(){
                 <div className="flex justify-between">
                   <button 
                     onClick={() => setCurrentStep(3)}
-                    className="p-3 rounded-lg hover:bg-gray-100 transition-all duration-200 flex items-center justify-center group"
+                    className="p-3 rounded-lg flex items-center justify-center"
                     style={{
                       border: '1px solid #e5e7eb',
                       cursor: 'pointer'
@@ -586,7 +591,6 @@ export default function Home(){
                   <button 
                     onClick={create}
                     disabled={loading}
-                    className="group relative overflow-hidden"
                     style={{
                       backgroundColor: loading ? '#666666' : '#000000',
                       color: '#ffffff',
@@ -599,34 +603,16 @@ export default function Home(){
                       opacity: loading ? '0.8' : '1',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '12px',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!loading) {
-                        e.target.style.transform = 'translateY(-2px)'
-                        e.target.style.boxShadow = '0 8px 20px rgba(0,0,0,0.2)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!loading) {
-                        e.target.style.transform = 'translateY(0)'
-                        e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
-                      }
+                      gap: '12px'
                     }}
                   >
-                    <span className="relative z-10">
-                      {loading ? (
-                        <>
-                          <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                          CREATING...
-                        </>
-                      ) : (
-                        'CREATE CONTEST'
-                      )}
-                    </span>
-                    {!loading && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    {loading ? (
+                      <>
+                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                        CREATING...
+                      </>
+                    ) : (
+                      'CREATE CONTEST'
                     )}
                   </button>
                 </div>
