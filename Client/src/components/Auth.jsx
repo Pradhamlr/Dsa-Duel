@@ -59,6 +59,18 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
     return { score, feedback }
   }
 
+  const handleModeSwitch = () => {
+    setIsLogin(!isLogin)
+    setFormData({
+      email: '',
+      username: '',
+      password: '',
+      name: ''
+    })
+    setError('')
+    setPasswordStrength({ score: 0, feedback: [] })
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -82,13 +94,18 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
         throw new Error(data.error || 'Authentication failed')
       }
 
-      localStorage.setItem('duel_access_token', data.accessToken)
-      localStorage.setItem('duel_refresh_token', data.refreshToken)
-      localStorage.setItem('duel_user', JSON.stringify(data.user))
-      localStorage.setItem('duel_userId', data.user.id)
-      localStorage.setItem('duel_name', data.user.name)
+      if (isLogin) {
+        localStorage.setItem('duel_access_token', data.accessToken)
+        localStorage.setItem('duel_refresh_token', data.refreshToken)
+        localStorage.setItem('duel_user', JSON.stringify(data.user))
+        localStorage.setItem('duel_userId', data.user.id)
+        localStorage.setItem('duel_name', data.user.name)
 
-      onAuthSuccess(data.user)
+        onAuthSuccess(data.user)
+      } else {
+        // Registration successful, show verification screen
+        onAuthSuccess({ needsVerification: true, email: formData.email })
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -125,7 +142,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
         </div>
         
         <button 
-          onClick={() => setIsLogin(!isLogin)}
+          onClick={handleModeSwitch}
           // inline styles to guarantee visibility over gradient
           style={{
             backgroundColor: '#ffffff',

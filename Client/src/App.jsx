@@ -6,12 +6,15 @@ import Leaderboard from './pages/Leaderboard'
 import Landing from './pages/Landing'
 import Auth from './components/Auth'
 import ForgotPassword from './components/ForgotPassword'
+import EmailVerification from './components/EmailVerification'
 
 export default function App(){
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showAuth, setShowAuth] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [showEmailVerification, setShowEmailVerification] = useState(false)
+  const [verificationEmail, setVerificationEmail] = useState('')
   const [authMode, setAuthMode] = useState('login')
 
   // Check for existing authentication
@@ -50,7 +53,13 @@ export default function App(){
   }, [])
 
   const handleAuthSuccess = (userData) => {
-    setUser(userData)
+    if (userData.needsVerification) {
+      setVerificationEmail(userData.email)
+      setShowAuth(false)
+      setShowEmailVerification(true)
+    } else {
+      setUser(userData)
+    }
   }
 
   const handleLogout = () => {
@@ -78,6 +87,7 @@ export default function App(){
   const handleBackToLanding = () => {
     setShowAuth(false)
     setShowForgotPassword(false)
+    setShowEmailVerification(false)
   }
 
   const handleForgotPassword = () => {
@@ -87,11 +97,21 @@ export default function App(){
 
   const handleBackToLogin = () => {
     setShowForgotPassword(false)
+    setShowEmailVerification(false)
     setShowAuth(true)
     setAuthMode('login')
   }
 
   if (!user) {
+    if (showEmailVerification) {
+      return (
+        <EmailVerification 
+          email={verificationEmail}
+          onVerificationSuccess={setUser}
+          onBack={handleBackToLogin}
+        />
+      )
+    }
     if (showForgotPassword) {
       return (
         <ForgotPassword 

@@ -3,24 +3,34 @@ import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { withPrisma } from '../utils/database.js';
 import { sendEmail } from '../utils/sendEmail.js';
+import { validateEmail, validatePassword, validateOTP, validateUsername } from '../utils/validation.js';
 
 export const register = async (req, res) => {
   try {
     const { email, username, password, name } = req.body;
     
+    // Validate email
+    if (email) {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        return res.status(400).json({ error: emailValidation.error });
+      }
+    }
+    
+    // Validate username
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.valid) {
+      return res.status(400).json({ error: usernameValidation.error });
+    }
+    
     if (!email && !username) {
       return res.status(400).json({ error: 'Email or username required' });
     }
-    if (!password || password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
     
-    // Enhanced password strength validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({ 
-        error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' 
-      });
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -102,6 +112,14 @@ export const login = async (req, res) => {
     }
     if (!email && !username) {
       return res.status(400).json({ error: 'Email or username required' });
+    }
+    
+    // Validate email format if provided
+    if (email) {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        return res.status(400).json({ error: emailValidation.error });
+      }
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -216,8 +234,9 @@ export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ error: emailValidation.error });
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -263,8 +282,14 @@ export const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
     
-    if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and OTP are required' });
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ error: emailValidation.error });
+    }
+    
+    const otpValidation = validateOTP(otp);
+    if (!otpValidation.valid) {
+      return res.status(400).json({ error: otpValidation.error });
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -301,19 +326,19 @@ export const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({ error: 'Email, OTP, and new password are required' });
-    }
-
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ error: emailValidation.error });
     }
     
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-    if (!passwordRegex.test(newPassword)) {
-      return res.status(400).json({ 
-        error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' 
-      });
+    const otpValidation = validateOTP(otp);
+    if (!otpValidation.valid) {
+      return res.status(400).json({ error: otpValidation.error });
+    }
+    
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -421,8 +446,14 @@ export const verifyEmail = async (req, res) => {
   try {
     const { email, otp } = req.body;
     
-    if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and verification code are required' });
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ error: emailValidation.error });
+    }
+    
+    const otpValidation = validateOTP(otp);
+    if (!otpValidation.valid) {
+      return res.status(400).json({ error: otpValidation.error });
     }
 
     const result = await withPrisma(async (prisma) => {
