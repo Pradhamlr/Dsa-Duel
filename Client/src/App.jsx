@@ -7,6 +7,7 @@ import Landing from './pages/Landing'
 import Auth from './components/Auth'
 import ForgotPassword from './components/ForgotPassword'
 import EmailVerification from './components/EmailVerification'
+import { ToastProvider } from './contexts/ToastContext'
 
 export default function App(){
   const [user, setUser] = useState(null)
@@ -105,43 +106,51 @@ export default function App(){
   if (!user) {
     if (showEmailVerification) {
       return (
-        <EmailVerification 
-          email={verificationEmail}
-          onVerificationSuccess={setUser}
-          onBack={handleBackToLogin}
-        />
+        <ToastProvider>
+          <EmailVerification 
+            email={verificationEmail}
+            onVerificationSuccess={setUser}
+            onBack={handleBackToLogin}
+          />
+        </ToastProvider>
       )
     }
     if (showForgotPassword) {
       return (
-        <ForgotPassword 
-          onBack={handleBackToLanding}
-          onLoginRedirect={handleBackToLogin}
-        />
+        <ToastProvider>
+          <ForgotPassword 
+            onBack={handleBackToLanding}
+            onLoginRedirect={handleBackToLogin}
+          />
+        </ToastProvider>
       )
     }
     if (showAuth) {
       return (
-        <Auth 
-          onAuthSuccess={handleAuthSuccess} 
-          initialMode={authMode}
-          onBack={handleBackToLanding}
-          onForgotPassword={handleForgotPassword}
-        />
+        <ToastProvider>
+          <Auth 
+            onAuthSuccess={handleAuthSuccess} 
+            initialMode={authMode}
+            onBack={handleBackToLanding}
+            onForgotPassword={handleForgotPassword}
+          />
+        </ToastProvider>
       )
     }
     return <Landing onNavigate={handleNavigate} />
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-300">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home/>} />
-          <Route path="/contest/:id" element={<Contest/>} />
-          <Route path="/leaderboard" element={<Leaderboard/>} />
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <ToastProvider>
+      <div className="min-h-screen transition-colors duration-300">
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home/>} />
+            <Route path="/contest/:id" element={<Contest/>} />
+            <Route path="/leaderboard" element={<Leaderboard/>} />
+          </Routes>
+        </BrowserRouter>
+      </div>
+    </ToastProvider>
   )
 }

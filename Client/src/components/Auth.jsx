@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useToast } from '../contexts/ToastContext'
 
 const EyeSVG = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -24,6 +25,7 @@ const CheckSVG = ({ size = 12, color = '#fff' }) => (
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
 export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onForgotPassword }) {
+  const { showError, showSuccess } = useToast()
   const [isLogin, setIsLogin] = useState(initialMode === 'login')
   const [formData, setFormData] = useState({
     email: '',
@@ -101,13 +103,15 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
         localStorage.setItem('duel_userId', data.user.id)
         localStorage.setItem('duel_name', data.user.name)
 
+        showSuccess('Welcome back!')
         onAuthSuccess(data.user)
       } else {
         // Registration successful, show verification screen
+        showSuccess('Registration successful! Please check your email for verification.')
         onAuthSuccess({ needsVerification: true, email: formData.email })
       }
     } catch (err) {
-      setError(err.message)
+      showError(err.message)
     } finally {
       setLoading(false)
     }
@@ -174,12 +178,6 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
               {isLogin ? 'Sign in to continue your coding journey' : 'Start your competitive programming adventure'}
             </p>
           </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-              {error}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (

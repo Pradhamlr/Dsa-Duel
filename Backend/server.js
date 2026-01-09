@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import errorHandler from './middleware/errorHandler.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -45,10 +46,7 @@ import authMiddleware from './middleware/authMiddleware.js';
 app.post('/create-contest', authMiddleware, createContest);
 
 // Global error handler
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error: ' + err.message });
-});
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log('Backend listening on', PORT));
