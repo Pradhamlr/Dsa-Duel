@@ -23,7 +23,7 @@ const CheckSVG = ({ size = 12, color = '#fff' }) => (
 
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
-export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
+export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onForgotPassword }) {
   const [isLogin, setIsLogin] = useState(initialMode === 'login')
   const [formData, setFormData] = useState({
     email: '',
@@ -267,6 +267,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack }) {
                 </div>
                 <button
                   type="button"
+                  onClick={onForgotPassword}
                   // inline style so it's always slightly visible
                   style={{
                     backgroundColor: '#f8fafc',

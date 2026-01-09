@@ -5,11 +5,13 @@ import Contest from './pages/Contest'
 import Leaderboard from './pages/Leaderboard'
 import Landing from './pages/Landing'
 import Auth from './components/Auth'
+import ForgotPassword from './components/ForgotPassword'
 
 export default function App(){
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showAuth, setShowAuth] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [authMode, setAuthMode] = useState('login')
 
   // Check for existing authentication
@@ -73,15 +75,36 @@ export default function App(){
 
   const handleBackToLanding = () => {
     setShowAuth(false)
+    setShowForgotPassword(false)
+  }
+
+  const handleForgotPassword = () => {
+    setShowAuth(false)
+    setShowForgotPassword(true)
+  }
+
+  const handleBackToLogin = () => {
+    setShowForgotPassword(false)
+    setShowAuth(true)
+    setAuthMode('login')
   }
 
   if (!user) {
+    if (showForgotPassword) {
+      return (
+        <ForgotPassword 
+          onBack={handleBackToLanding}
+          onLoginRedirect={handleBackToLogin}
+        />
+      )
+    }
     if (showAuth) {
       return (
         <Auth 
           onAuthSuccess={handleAuthSuccess} 
           initialMode={authMode}
           onBack={handleBackToLanding}
+          onForgotPassword={handleForgotPassword}
         />
       )
     }
