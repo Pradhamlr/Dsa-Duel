@@ -2,16 +2,41 @@ const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
 // Helper function to get auth headers
 export const getAuthHeaders = () => {
-  const token = localStorage.getItem('duel_token')
+  const token = localStorage.getItem('duel_access_token')
   return {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` })
   }
 }
 
+// Refresh access token
+const refreshAccessToken = async () => {
+  const refreshToken = localStorage.getItem('duel_refresh_token')
+  if (!refreshToken) return false
+
+  try {
+    const response = await fetch(`${API}/auth/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      localStorage.setItem('duel_access_token', data.accessToken)
+      localStorage.setItem('duel_refresh_token', data.refreshToken)
+      return true
+    }
+  } catch (error) {
+    console.error('Token refresh failed:', error)
+  }
+  
+  return false
+}
+
 // Authenticated fetch wrapper
 export const authFetch = async (url, options = {}) => {
-  const response = await fetch(`${API}${url}`, {
+  let response = await fetch(`${API}${url}`, {
     ...options,
     headers: {
       ...getAuthHeaders(),
@@ -20,11 +45,26 @@ export const authFetch = async (url, options = {}) => {
   })
 
   if (response.status === 401) {
-    // Token expired or invalid
-    localStorage.removeItem('duel_token')
-    localStorage.removeItem('duel_user')
-    window.location.reload()
-    return
+    // Try to refresh token
+    const refreshed = await refreshAccessToken()
+    
+    if (refreshed) {
+      // Retry with new token
+      response = await fetch(`${API}${url}`, {
+        ...options,
+        headers: {
+          ...getAuthHeaders(),
+          ...options.headers
+        }
+      })
+    } else {
+      // Refresh failed, clear tokens and reload
+      localStorage.removeItem('duel_access_token')
+      localStorage.removeItem('duel_refresh_token')
+      localStorage.removeItem('duel_user')
+      window.location.reload()
+      return
+    }
   }
 
   return response

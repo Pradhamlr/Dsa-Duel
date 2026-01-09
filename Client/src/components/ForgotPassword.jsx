@@ -9,6 +9,29 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] })
+
+  const validatePasswordStrength = (password) => {
+    const feedback = []  
+    let score = 0
+    
+    if (password.length >= 8) score++
+    else feedback.push('At least 8 characters')
+    
+    if (/[a-z]/.test(password)) score++
+    else feedback.push('One lowercase letter')
+    
+    if (/[A-Z]/.test(password)) score++
+    else feedback.push('One uppercase letter')
+    
+    if (/\d/.test(password)) score++
+    else feedback.push('One number')
+    
+    if (/[@$!%*?&]/.test(password)) score++
+    else feedback.push('One special character (@$!%*?&)')
+    
+    return { score, feedback }
+  }
 
   const handleForgotPassword = async (e) => {
     e.preventDefault()
@@ -142,18 +165,35 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           
           {/* Step Indicator */}
           <div className="flex justify-center mb-8">
-            <div className="flex items-center space-x-4">
-              {[1, 2, 3].map((stepNum) => (
-                <div key={stepNum} className="flex items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step >= stepNum ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {stepNum}
+            <div className="flex items-center w-64">
+              {[1, 2, 3].map((stepNum, index) => (
+                <React.Fragment key={stepNum}>
+                  <div className="flex flex-col items-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                      step >= stepNum 
+                        ? 'bg-indigo-600 text-white shadow-lg' 
+                        : step === stepNum - 1 
+                        ? 'bg-indigo-100 text-indigo-600 border-2 border-indigo-600' 
+                        : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {step > stepNum ? (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : stepNum}
+                    </div>
+                    <span className={`text-xs mt-2 font-medium ${
+                      step >= stepNum ? 'text-indigo-600' : 'text-gray-400'
+                    }`}>
+                      {stepNum === 1 ? 'Email' : stepNum === 2 ? 'Verify' : 'Reset'}
+                    </span>
                   </div>
-                  {stepNum < 3 && (
-                    <div className={`w-8 h-0.5 ${step > stepNum ? 'bg-indigo-600' : 'bg-gray-200'}`} />
+                  {index < 2 && (
+                    <div className="flex-1 h-0.5 mx-4 transition-all duration-300" style={{
+                      backgroundColor: step > stepNum ? '#4f46e5' : '#e5e7eb'
+                    }} />
                   )}
-                </div>
+                </React.Fragment>
               ))}
             </div>
           </div>
@@ -172,14 +212,24 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-              {error}
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm font-medium text-red-800">{error}</p>
+              </div>
             </div>
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
-              {success}
+            <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-400 rounded-r-lg">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm font-medium text-green-800">{success}</p>
+              </div>
             </div>
           )}
 
@@ -294,13 +344,45 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                 <input
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => {
+                    const password = e.target.value
+                    setNewPassword(password)
+                    setPasswordStrength(validatePasswordStrength(password))
+                  }}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
                   placeholder="••••••••••"
-                  minLength="6"
+                  minLength="8"
                   required
                 />
               </div>
+              {newPassword && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          passwordStrength.score <= 2 ? 'bg-red-500' : 
+                          passwordStrength.score <= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      passwordStrength.score <= 2 ? 'text-red-600' : 
+                      passwordStrength.score <= 4 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {passwordStrength.score <= 2 ? 'Weak' : 
+                       passwordStrength.score <= 4 ? 'Good' : 'Strong'}
+                    </span>
+                  </div>
+                  {passwordStrength.feedback.length > 0 && (
+                    <div className="text-xs text-gray-600">
+                      <span>Required: </span>
+                      {passwordStrength.feedback.join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={loading}

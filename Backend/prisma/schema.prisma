@@ -17,6 +17,8 @@ model User {
   lastLogin DateTime?
   resetToken String?  @unique
   resetTokenExpiry DateTime?
+  refreshToken String? @unique
+  refreshTokenExpiry DateTime?
 
   contests  Contest[] @relation("CreatorContests")
   results   Result[]

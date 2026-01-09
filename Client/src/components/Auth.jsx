@@ -35,6 +35,29 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] })
+
+  const validatePasswordStrength = (password) => {
+    const feedback = []
+    let score = 0
+    
+    if (password.length >= 8) score++
+    else feedback.push('At least 8 characters')
+    
+    if (/[a-z]/.test(password)) score++
+    else feedback.push('One lowercase letter')
+    
+    if (/[A-Z]/.test(password)) score++
+    else feedback.push('One uppercase letter')
+    
+    if (/\d/.test(password)) score++
+    else feedback.push('One number')
+    
+    if (/[@$!%*?&]/.test(password)) score++
+    else feedback.push('One special character (@$!%*?&)')
+    
+    return { score, feedback }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -59,7 +82,8 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
         throw new Error(data.error || 'Authentication failed')
       }
 
-      localStorage.setItem('duel_token', data.token)
+      localStorage.setItem('duel_access_token', data.accessToken)
+      localStorage.setItem('duel_refresh_token', data.refreshToken)
       localStorage.setItem('duel_user', JSON.stringify(data.user))
       localStorage.setItem('duel_userId', data.user.id)
       localStorage.setItem('duel_name', data.user.name)
@@ -195,11 +219,17 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
                 <input
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => {
+                    const newPassword = e.target.value
+                    setFormData({...formData, password: newPassword})
+                    if (!isLogin) {
+                      setPasswordStrength(validatePasswordStrength(newPassword))
+                    }
+                  }}
                   className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
                   placeholder="••••••••••"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -225,6 +255,34 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
                   {showPassword ? <EyeOffSVG size={18} /> : <EyeSVG size={18} />}
                 </button>
               </div>
+              {!isLogin && formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          passwordStrength.score <= 2 ? 'bg-red-500' : 
+                          passwordStrength.score <= 4 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      passwordStrength.score <= 2 ? 'text-red-600' : 
+                      passwordStrength.score <= 4 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {passwordStrength.score <= 2 ? 'Weak' : 
+                       passwordStrength.score <= 4 ? 'Good' : 'Strong'}
+                    </span>
+                  </div>
+                  {passwordStrength.feedback.length > 0 && (
+                    <div className="text-xs text-gray-600">
+                      <span>Required: </span>
+                      {passwordStrength.feedback.join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {isLogin && (

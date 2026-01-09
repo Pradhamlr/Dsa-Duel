@@ -11,8 +11,16 @@ export const register = async (req, res) => {
     if (!email && !username) {
       return res.status(400).json({ error: 'Email or username required' });
     }
-    if (!password || password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    
+    // Enhanced password strength validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ 
+        error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' 
+      });
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -49,14 +57,29 @@ export const register = async (req, res) => {
       
       const user = await prisma.user.create({ data: userData });
 
-      const token = jwt.sign(
+      const accessToken = jwt.sign(
         { userId: user.id, email: user.email, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+
+      const refreshToken = jwt.sign(
+        { userId: user.id, type: 'refresh' },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
 
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          refreshToken,
+          refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        }
+      });
+
       return {
-        token,
+        accessToken,
+        refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -116,14 +139,29 @@ export const login = async (req, res) => {
         console.log('lastLogin field not available');
       }
 
-      const token = jwt.sign(
+      const accessToken = jwt.sign(
         { userId: user.id, email: user.email, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+
+      const refreshToken = jwt.sign(
+        { userId: user.id, type: 'refresh' },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
 
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          refreshToken,
+          refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        }
+      });
+
       return {
-        token,
+        accessToken,
+        refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -270,8 +308,15 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Email, OTP, and new password are required' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ 
+        error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character' 
+      });
     }
 
     const result = await withPrisma(async (prisma) => {
@@ -312,5 +357,65 @@ export const resetPassword = async (req, res) => {
   } catch (err) {
     console.error('Reset password error:', err);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token required' });
+    }
+
+    const result = await withPrisma(async (prisma) => {
+      const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+      
+      if (decoded.type !== 'refresh') {
+        return { error: 'Invalid token type', status: 401 };
+      }
+
+      const user = await prisma.user.findUnique({ 
+        where: { id: decoded.userId }
+      });
+      
+      if (!user || user.refreshToken !== refreshToken || new Date() > user.refreshTokenExpiry) {
+        return { error: 'Invalid or expired refresh token', status: 401 };
+      }
+
+      const newAccessToken = jwt.sign(
+        { userId: user.id, email: user.email, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+
+      const newRefreshToken = jwt.sign(
+        { userId: user.id, type: 'refresh' },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          refreshToken: newRefreshToken,
+          refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        }
+      });
+
+      return { 
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken
+      };
+    });
+
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Refresh token error:', err);
+    res.status(401).json({ error: 'Invalid refresh token' });
   }
 };

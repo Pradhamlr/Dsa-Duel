@@ -16,14 +16,15 @@ export default function App(){
 
   // Check for existing authentication
   useEffect(() => {
-    const token = localStorage.getItem('duel_token')
+    const token = localStorage.getItem('duel_access_token')
     const userData = localStorage.getItem('duel_user')
     
     if (token && userData) {
       try {
         setUser(JSON.parse(userData))
       } catch (e) {
-        localStorage.removeItem('duel_token')
+        localStorage.removeItem('duel_access_token')
+        localStorage.removeItem('duel_refresh_token')
         localStorage.removeItem('duel_user')
       }
     }
@@ -53,7 +54,8 @@ export default function App(){
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('duel_token')
+    localStorage.removeItem('duel_access_token')
+    localStorage.removeItem('duel_refresh_token')
     localStorage.removeItem('duel_user')
     localStorage.removeItem('duel_userId')
     localStorage.removeItem('duel_name')
