@@ -54,3 +54,37 @@ model Result {
   @@unique([contestId, userId, problemIndex])
   @@index([contestId, userId])
 }
+
+enum TagSource {
+  leetcode
+  ai
+  merged
+}
+
+enum AIStatus {
+  pending
+  completed
+  failed
+}
+
+model Problem {
+  id           String   @id @default(uuid())
+  leetcodeId   String   @unique
+
+  title        String
+  difficulty   String
+  leetcodeUrl  String
+
+  leetcodeTags String[]
+  aiTags       String[]
+  finalTags    String[]
+
+  tagSource    TagSource
+  aiStatus     AIStatus @default(completed)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([difficulty])
+  @@index([finalTags])
+}

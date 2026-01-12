@@ -15,7 +15,7 @@ export const ToastProvider = ({ children }) => {
 
   const addToast = (message, type = 'info', duration = 5000) => {
     const id = Date.now()
-    const toast = { id, message, type, duration }
+    const toast = { id, message, type, duration, isExiting: false }
     
     setToasts(prev => [...prev, toast])
     
@@ -25,7 +25,15 @@ export const ToastProvider = ({ children }) => {
   }
 
   const removeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id))
+    // Start exit animation
+    setToasts(prev => prev.map(toast => 
+      toast.id === id ? { ...toast, isExiting: true } : toast
+    ))
+    
+    // Remove after animation completes
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id))
+    }, 300)
   }
 
   const showError = (message) => addToast(message, 'error')
@@ -52,18 +60,19 @@ const ToastContainer = ({ toasts, removeToast }) => {
 }
 
 const Toast = ({ toast, onClose }) => {
-  const getToastStyles = (type) => {
-    const baseStyles = "flex items-center p-4 rounded-lg shadow-lg backdrop-blur-sm border transform transition-all duration-300 ease-in-out animate-slide-in"
+  const getToastStyles = (type, isExiting) => {
+    const baseStyles = "flex items-center p-4 rounded-lg shadow-lg backdrop-blur-sm border transform transition-all duration-300 ease-in-out"
+    const animationClass = isExiting ? "animate-slide-out" : "animate-slide-in"
     
     switch (type) {
       case 'error':
-        return `${baseStyles} bg-red-50/95 border-red-200 text-red-800`
+        return `${baseStyles} ${animationClass} bg-red-50/95 border-red-200 text-red-800`
       case 'success':
-        return `${baseStyles} bg-green-50/95 border-green-200 text-green-800`
+        return `${baseStyles} ${animationClass} bg-green-50/95 border-green-200 text-green-800`
       case 'warning':
-        return `${baseStyles} bg-yellow-50/95 border-yellow-200 text-yellow-800`
+        return `${baseStyles} ${animationClass} bg-yellow-50/95 border-yellow-200 text-yellow-800`
       default:
-        return `${baseStyles} bg-blue-50/95 border-blue-200 text-blue-800`
+        return `${baseStyles} ${animationClass} bg-blue-50/95 border-blue-200 text-blue-800`
     }
   }
 
@@ -97,7 +106,7 @@ const Toast = ({ toast, onClose }) => {
   }
 
   return (
-    <div className={getToastStyles(toast.type)}>
+    <div className={getToastStyles(toast.type, toast.isExiting)}>
       {getIcon(toast.type)}
       <span className="text-sm font-medium flex-1">{toast.message}</span>
       <button
@@ -120,8 +129,21 @@ const Toast = ({ toast, onClose }) => {
             opacity: 1;
           }
         }
+        @keyframes slide-out {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
         .animate-slide-in {
           animation: slide-in 0.3s ease-out;
+        }
+        .animate-slide-out {
+          animation: slide-out 0.3s ease-in;
         }
       `}</style>
     </div>

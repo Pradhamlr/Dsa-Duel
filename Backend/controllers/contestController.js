@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto';
 import { withPrisma } from '../utils/database.js';
 import { fetchLeetCodePool, getProblemType } from '../utils/leetcode.js';
+import { classifyProblems } from '../utils/problemClassifier.js';
+import { isBadTagSet } from '../utils/tagQuality.js';
 
 export const createContest = async (req, res) => {
   try {
