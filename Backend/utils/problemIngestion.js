@@ -82,9 +82,7 @@ function classifyWithRules(problem) {
   if (/\b(matrix|grid|2d|board)\b/.test(text)) tags.push("Matrix");
   if (/\b(binary search)\b/.test(text)) tags.push("BinarySearch");
   if (/\b(two pointer|left right|slow fast)\b/.test(text)) tags.push("TwoPointers");
-  if (/\b(dp|dynamic programming|memo|cache|optimal)\b/.test(text)) tags.push("DP");
-
-  if (!tags.length) tags.push("Array"); // fallback
+  if (/\b(dp|dynamic programming|memo|cache|optimal)\b/.test(text)) tags.push("DP"); // fallback
 
   return tags;
 }
