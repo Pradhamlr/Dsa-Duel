@@ -20,19 +20,50 @@ export default function App(){
 
   // Check for existing authentication
   useEffect(() => {
-    const token = localStorage.getItem('duel_access_token')
-    const userData = localStorage.getItem('duel_user')
-    
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData))
-      } catch (e) {
-        localStorage.removeItem('duel_access_token')
-        localStorage.removeItem('duel_refresh_token')
-        localStorage.removeItem('duel_user')
+    const verifyUser = async () => {
+      const token = localStorage.getItem('duel_access_token')
+      const userData = localStorage.getItem('duel_user')
+      
+      if (token && userData) {
+        try {
+          const parsedUser = JSON.parse(userData)
+          
+          // Verify user still exists in database
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'}/auth/me`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              }
+            )
+            
+            if (response.ok) {
+              setUser(parsedUser)
+            } else {
+              // User deleted or token invalid - clear everything
+              localStorage.removeItem('duel_access_token')
+              localStorage.removeItem('duel_refresh_token')
+              localStorage.removeItem('duel_user')
+              localStorage.removeItem('duel_userId')
+              localStorage.removeItem('duel_name')
+              setUser(null)
+            }
+          } catch (verifyError) {
+            // Network error during verification - use cached user for now
+            setUser(parsedUser)
+          }
+        } catch (parseError) {
+          localStorage.removeItem('duel_access_token')
+          localStorage.removeItem('duel_refresh_token')
+          localStorage.removeItem('duel_user')
+        }
       }
+      setLoading(false)
     }
-    setLoading(false)
+    
+    verifyUser()
   }, [])
 
   // Initialize theme on app load

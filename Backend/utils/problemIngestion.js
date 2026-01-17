@@ -1,7 +1,5 @@
 import { withPrisma } from './database.js';
 import { fetchLeetCodePool } from './leetcode.js';
-import { classifyProblem } from '../services/aiTagger.js';
-import { isBadTagSet } from './tagQuality.js';
 
 export async function ingestProblem(leetcodeProblem) {
   return await withPrisma(async (prisma) => {
@@ -12,39 +10,16 @@ export async function ingestProblem(leetcodeProblem) {
     
     if (existing) return existing;
 
-    // Step 1: Rule-based tagging (always works)
-    const ruleBasedTags = classifyWithRules(leetcodeProblem);
-    
-    let finalTags = ruleBasedTags;
-    let tagSource = 'leetcode';
-    let aiStatus = 'pending';
+    const ruleTags = classifyWithRules(leetcodeProblem);
+
+    let finalTags = ruleTags;
+    let aiStatus = 'completed';
+    let tagSource = 'rule';
     let aiTags = [];
 
-    // Step 2: AI enhancement (if available and rule-based tags are poor)
-    if (isBadTagSet(ruleBasedTags)) {
-      try {
-        console.log(`Attempting AI classification for: ${leetcodeProblem.title}`);
-        aiTags = await classifyProblem({
-          title: leetcodeProblem.title,
-          description: '',
-          constraints: ''
-        });
-        
-        if (aiTags && aiTags.length > 0 && !aiTags.includes('Other')) {
-          finalTags = aiTags;
-          tagSource = 'ai';
-          aiStatus = 'completed';
-          console.log(`AI classification successful: ${aiTags.join(', ')}`);
-        } else {
-          aiStatus = 'completed';
-          console.log(`AI returned poor tags, keeping rule-based: ${ruleBasedTags.join(', ')}`);
-        }
-      } catch (error) {
-        console.warn(`AI classification deferred for ${leetcodeProblem.title}: ${error.message}`);
-        // Keep aiStatus as 'pending' - do NOT mark as failed
-      }
-    } else {
-      aiStatus = 'completed'; // Rule-based tags are good, no AI needed
+    if (ruleTags.includes('Other')) {
+      aiStatus = 'pending';
+      tagSource = 'pending';
     }
 
     // Create problem in database
@@ -54,7 +29,7 @@ export async function ingestProblem(leetcodeProblem) {
         title: leetcodeProblem.title,
         difficulty: leetcodeProblem.difficulty,
         leetcodeUrl: `https://leetcode.com/problems/${leetcodeProblem.slug}/`,
-        leetcodeTags: ruleBasedTags,
+        leetcodeTags: ruleTags,
         aiTags,
         finalTags,
         tagSource,
@@ -68,24 +43,89 @@ export async function ingestProblem(leetcodeProblem) {
 
 // Rule-based classification (reliable fallback)
 function classifyWithRules(problem) {
-  const text = `${problem.title} ${problem.slug}`.toLowerCase();
+  const text = `${problem.title} ${problem.slug || ""}`.toLowerCase();
   const tags = [];
 
-  if (/\b(array|subarray|subsequence|list)\b/.test(text)) tags.push("Array");
-  if (/\b(string|substring|palindrome|anagram)\b/.test(text)) tags.push("String");
-  if (/\b(tree|binary tree|bst|node)\b/.test(text)) tags.push("Tree");
-  if (/\b(graph|dfs|bfs|connected|path)\b/.test(text)) tags.push("Graph");
-  if (/\b(linked list|listnode)\b/.test(text)) tags.push("LinkedList");
-  if (/\b(stack)\b/.test(text)) tags.push("Stack");
-  if (/\b(queue)\b/.test(text)) tags.push("Queue");
-  if (/\b(hash|map|dict|frequency|count)\b/.test(text)) tags.push("Hashing");
-  if (/\b(matrix|grid|2d|board)\b/.test(text)) tags.push("Matrix");
-  if (/\b(binary search)\b/.test(text)) tags.push("BinarySearch");
-  if (/\b(two pointer|left right|slow fast)\b/.test(text)) tags.push("TwoPointers");
-  if (/\b(dp|dynamic programming|memo|cache|optimal)\b/.test(text)) tags.push("DP"); // fallback
+  // 1. Database / SQL
+  if (/\b(sql|database|table|employee|salary|group by|join|select)\b/.test(text)) {
+    tags.push("Database");
+  }
 
-  return tags;
+  // 2. Graph
+  if (/\b(graph|dfs|bfs|connected|cycle|topological|shortest path)\b/.test(text)) {
+    tags.push("Graph");
+  }
+
+  // 3. Tree
+  if (/\b(tree|binary tree|bst|node|ancestor|traversal)\b/.test(text)) {
+    tags.push("Tree");
+  }
+
+  // 4. Linked List
+  if (/\b(linked list|listnode|merge lists|reverse list)\b/.test(text)) {
+    tags.push("LinkedList");
+  }
+
+  // 5. Stack
+  if (/\b(stack|monotonic|parentheses|bracket)\b/.test(text)) {
+    tags.push("Stack");
+  }
+
+  // 6. Queue
+  if (/\b(queue|deque|sliding window)\b/.test(text)) {
+    tags.push("Queue");
+  }
+
+  // 7. DP
+  if (/\b(dp|dynamic programming|memo|tabulation|optimal substructure)\b/.test(text)) {
+    tags.push("DP");
+  }
+
+  // 8. Binary Search
+  if (/\b(binary search|search in sorted|lower bound|upper bound)\b/.test(text)) {
+    tags.push("BinarySearch");
+  }
+
+  // 9. Two Pointers
+  if (/\b(two pointers|slow fast|left right)\b/.test(text)) {
+    tags.push("TwoPointers");
+  }
+
+  // 10. Matrix
+  if (/\b(matrix|grid|2d|board)\b/.test(text)) {
+    tags.push("Matrix");
+  }
+
+  // 11. Hashing
+  if (/\b(hash|map|dictionary|frequency|count distinct)\b/.test(text)) {
+    tags.push("Hashing");
+  }
+
+  // 12. String
+  if (/\b(string|substring|palindrome|anagram|character)\b/.test(text)) {
+    tags.push("String");
+  }
+
+  // 13. Math (very important for your rectangle example)
+  if (/\b(rectangle|square|area|length|width|min|max|number of|count of|sum of)\b/.test(text)) {
+    tags.push("Math");
+    tags.push("Array"); // almost always iterating
+  }
+
+  // 14. Array (generic fallback if nothing else but still array-like)
+  if (/\b(array|arrays|nums|list of|elements)\b/.test(text)) {
+    tags.push("Array");
+  }
+
+  const unique = [...new Set(tags)];
+
+  if (unique.length === 0) {
+    return ["Other"];   
+  }
+
+  return unique.slice(0, 2);
 }
+
 
 
 export async function ensureProblemsAvailable(filters, requiredCount) {

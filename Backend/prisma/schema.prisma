@@ -56,9 +56,9 @@ model Result {
 }
 
 enum TagSource {
-  leetcode
+  rule
   ai
-  merged
+  pending
 }
 
 enum AIStatus {

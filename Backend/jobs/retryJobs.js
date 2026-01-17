@@ -12,12 +12,13 @@ export async function retryPendingAITags() {
     for (const p of pending) {
       try {
         const aiTags = await classifyProblem(p);
+        const finalTags = aiTags.filter(tag => tag !== "Other").slice(0, 2);
 
         await prisma.problem.update({
           where: { id: p.id },
           data: {
             aiTags,
-            finalTags: aiTags,
+            finalTags,
             tagSource: "ai",
             aiStatus: "completed"
           }

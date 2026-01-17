@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { authFetch } from '../utils/api'
 
 // Use same API default pattern as other pages
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
@@ -8,6 +9,35 @@ export default function Leaderboard(){
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
+
+  // Verify user exists on mount
+  useEffect(() => {
+    const verifyUserExists = async () => {
+      try {
+        const token = localStorage.getItem('duel_access_token')
+        if (!token) {
+          navigate('/')
+          return
+        }
+
+        const response = await authFetch('/auth/me')
+        if (!response.ok) {
+          // User doesn't exist - clear data and redirect home
+          localStorage.removeItem('duel_access_token')
+          localStorage.removeItem('duel_refresh_token')
+          localStorage.removeItem('duel_user')
+          localStorage.removeItem('duel_userId')
+          localStorage.removeItem('duel_name')
+          navigate('/')
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
+        }
+      } catch (error) {
+        console.error('User verification error:', error)
+      }
+    }
+
+    verifyUserExists()
+  }, [navigate])
 
   async function load(){
     setLoading(true)

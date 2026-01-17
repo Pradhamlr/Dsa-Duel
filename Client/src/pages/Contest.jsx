@@ -28,6 +28,35 @@ export default function Contest(){
   })
   const navigate = useNavigate()
 
+  // Verify user exists on mount
+  useEffect(() => {
+    const verifyUserExists = async () => {
+      try {
+        const token = localStorage.getItem('duel_access_token')
+        if (!token) {
+          navigate('/')
+          return
+        }
+
+        const response = await authFetch('/auth/me')
+        if (!response.ok) {
+          // User doesn't exist - clear data and redirect home
+          localStorage.removeItem('duel_access_token')
+          localStorage.removeItem('duel_refresh_token')
+          localStorage.removeItem('duel_user')
+          localStorage.removeItem('duel_userId')
+          localStorage.removeItem('duel_name')
+          navigate('/')
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
+        }
+      } catch (error) {
+        console.error('User verification error:', error)
+      }
+    }
+
+    verifyUserExists()
+  }, [navigate])
+
   useEffect(()=>{
     async function load(){
       try {
