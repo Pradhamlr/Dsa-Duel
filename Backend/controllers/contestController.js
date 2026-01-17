@@ -1,61 +1,101 @@
 import { randomUUID } from 'crypto';
 import { withPrisma } from '../utils/database.js';
-import { fetchLeetCodePool, getProblemType } from '../utils/leetcode.js';
-import { classifyProblems } from '../utils/problemClassifier.js';
-import { isBadTagSet } from '../utils/tagQuality.js';
+import { ensureProblemsAvailable } from '../utils/problemIngestion.js';
 
 export const createContest = async (req, res) => {
   try {
-    const { numProblems = 5, difficulty = 'mixed', duration } = req.body || {};
-    const pool = await fetchLeetCodePool();
+    const { numProblems = 5, difficulty = 'Mixed', duration, selectedTopics = [] } = req.body || {};
+    const problemCount = Number(numProblems);
 
-    let filtered = (difficulty === 'Easy' || difficulty === 'Medium')
-      ? pool.filter(p => p.difficulty === difficulty)
-      : pool;
-
-    const topic = req.body && req.body.topic ? req.body.topic : null
-    if (topic) {
-      const byTopic = filtered.filter(p => getProblemType(p) === topic)
-      if (byTopic.length < numProblems) {
-        return res.status(400).json({ error: 'Not enough problems for selected topic' })
-      }
-      filtered = byTopic
+    // Validate input
+    if (![3, 4, 5].includes(problemCount)) {
+      return res.status(400).json({ error: 'Problem count must be 3, 4, or 5' });
     }
 
-    if (filtered.length < numProblems) return res.status(500).json({ error: 'Not enough problems' });
+    if (!['Easy', 'Medium', 'Mixed'].includes(difficulty)) {
+      return res.status(400).json({ error: 'Difficulty must be Easy, Medium, or Mixed' });
+    }
 
-    const chosen = [];
-    const used = new Set();
-    while (chosen.length < numProblems) {
-      const idx = Math.floor(Math.random() * filtered.length);
-      if (!used.has(idx)) { used.add(idx); chosen.push(filtered[idx]); }
+    const filters = { difficulty, selectedTopics };
+
+    // Ensure we have enough problems in database
+    try {
+      await ensureProblemsAvailable(filters, problemCount);
+    } catch (error) {
+      console.error('Problem ingestion failed:', error);
+      return res.status(500).json({ error: 'Failed to fetch problems from database' });
     }
 
     const result = await withPrisma(async (prisma) => {
-      const id = randomUUID().slice(0,8);
-      const durationSeconds = duration && Number.isFinite(Number(duration)) ? Number(duration) : 90 * 60
+      // Query Problem table for matching problems
+      const where = {};
+      
+      if (difficulty !== 'Mixed') {
+        where.difficulty = difficulty;
+      }
+      
+      if (selectedTopics.length > 0) {
+        where.finalTags = {
+          hasSome: selectedTopics
+        };
+      }
 
-      const creatorId = req.user.userId
-      const creatorName = req.user.username || req.user.email?.split('@')[0]
+      console.log('Querying problems with filters:', { difficulty, selectedTopics, where });
+      const problems = await prisma.problem.findMany({ where });
+      console.log(`Found ${problems.length} problems in database`);
+
+      if (problems.length < problemCount) {
+        console.error(`Not enough problems: found ${problems.length}, need ${problemCount}`);
+        return { error: 'Not enough problems available after ingestion', status: 500 };
+      }
+
+      // Randomly shuffle and select required count
+      const shuffled = problems.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, problemCount);
+      console.log('Selected problems:', selected.map(p => p.title));
+
+      // Convert to contest format
+      const chosen = selected.map(p => ({
+        title: p.title,
+        slug: p.leetcodeId,
+        difficulty: p.difficulty,
+        url: p.leetcodeUrl,
+        finalTags: p.finalTags 
+      }));
+
+      const id = randomUUID().slice(0, 8);
+      const durationSeconds = duration && Number.isFinite(Number(duration)) ? Number(duration) : 90 * 60;
+
+      const creatorId = req.user.userId;
+      const creatorName = req.user.username || req.user.email?.split('@')[0];
+      
       try {
-        await prisma.user.upsert({ where: { id: creatorId }, update: { name: creatorName || undefined }, create: { id: creatorId, name: creatorName || undefined } })
+        await prisma.user.upsert({ 
+          where: { id: creatorId }, 
+          update: { name: creatorName || undefined }, 
+          create: { id: creatorId, name: creatorName || undefined } 
+        });
       } catch (e) {
-        console.error('User upsert error:', e)
+        console.error('User upsert error:', e);
       }
 
       const created = await prisma.contest.create({
         data: {
           id,
-          numProblems: Number(numProblems),
+          numProblems: problemCount,
           difficulty,
           problems: chosen,
           durationSeconds,
           creatorId
         }
-      })
+      });
       
-      return { contestId: created.id, problems: chosen }
-    })
+      return { contestId: created.id, problems: chosen };
+    });
+
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
+    }
 
     res.json(result);
   } catch (err) {

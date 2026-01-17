@@ -57,7 +57,7 @@ export default function Home(){
         body: JSON.stringify({ 
           numProblems: Number(num), 
           difficulty, 
-          topic: topic !== 'All' ? topic : undefined,
+          selectedTopics: topic !== 'All' ? [topic] : [],
           duration: Number(durationMin) * 60 
         })
       })
@@ -605,7 +605,7 @@ export default function Home(){
                           outline: 'none'
                         }}
                       />
-                      <style jsx>{`
+                      <style>{`
                         input[type="range"]::-webkit-slider-thumb {
                           -webkit-appearance: none;
                           width: 28px;

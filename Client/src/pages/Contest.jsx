@@ -168,21 +168,12 @@ export default function Contest(){
   const isOver = ended || (contestEndMs !== null && nowMs >= contestEndMs)
 
   // derive problem types using simple heuristics on title/slug
-  function getProblemType(p){
-    const txt = (p.title || p.slug || '').toLowerCase()
-    if (/\b(linked ?list|linked-list)\b/.test(txt)) return 'Linked List'
-    if (/\b(tree|binary tree|bst)\b/.test(txt)) return 'Tree'
-    if (/\b(graph|dfs|bfs)\b/.test(txt)) return 'Graph'
-    if (/\b(array|arrays?)\b/.test(txt)) return 'Array'
-    if (/\b(string|strings?)\b/.test(txt)) return 'String'
-    if (/\b(dynamic programming|dp)\b/.test(txt)) return 'DP'
-    if (/\b(stack|queue|deque)\b/.test(txt)) return 'Stack/Queue'
-    if (/\b(matrix|grid)\b/.test(txt)) return 'Matrix'
-    if (/\b(hash|map|unordered)\b/.test(txt)) return 'Hash / Map'
-    if (/\b(binary search|search)\b/.test(txt)) return 'Binary Search'
-    if (/\b(two ?pointers|two-pointers)\b/.test(txt)) return 'Two Pointers'
-    return 'Other'
+  function getProblemType(p) {
+  if (p.finalTags && p.finalTags.length > 0) {
+    return p.finalTags.join(", ");
   }
+  return "Other";
+}
 
   const problemTypes = contest.problems.map(getProblemType)
 

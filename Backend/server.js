@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import errorHandler from './middleware/errorHandler.js';
+import { retryPendingAITags } from './jobs/retryJobs.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -49,4 +50,14 @@ app.post('/create-contest', authMiddleware, createContest);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log('Backend listening on', PORT));
+app.listen(PORT, () => {
+
+    console.log('Backend listening on', PORT)
+
+    setInterval(() => {
+        retryPendingAITags().catch(err =>
+        console.error("AI retry job failed:", err)
+        );
+    }, 60 * 1000);
+
+});
