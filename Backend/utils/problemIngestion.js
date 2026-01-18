@@ -132,15 +132,19 @@ export async function ensureProblemsAvailable(filters, requiredCount) {
   return await withPrisma(async (prisma) => {
     const { difficulty, selectedTopics } = filters;
 
-    // For now, let's just ensure we have enough problems of the right difficulty
-    // Topic filtering will happen at query time
+    // Build query to check current availability with topic filters
     const where = {};
     if (difficulty !== 'Mixed') {
       where.difficulty = difficulty;
     }
+    if (selectedTopics && selectedTopics.length > 0) {
+      where.finalTags = {
+        hasSome: selectedTopics
+      };
+    }
 
     const currentCount = await prisma.problem.count({ where });
-    console.log(`Current problems in DB (${difficulty}): ${currentCount}, needed: ${requiredCount}`);
+    console.log(`Current problems in DB (difficulty: ${difficulty}, topics: ${selectedTopics?.join(', ') || 'all'}): ${currentCount}, needed: ${requiredCount}`);
     
     if (currentCount >= requiredCount) {
       return true;
@@ -164,9 +168,29 @@ export async function ensureProblemsAvailable(filters, requiredCount) {
       throw new Error(`No problems available for difficulty: ${difficulty}`);
     }
 
+    // Prioritize problems that might match selected topics (pre-classification)
+    if (selectedTopics && selectedTopics.length > 0) {
+      // Try to predict which problems will match topics based on title/slug
+      const withPriority = filteredPool.map(p => {
+        const predictedTags = classifyWithRules(p);
+        const matchesTopics = selectedTopics.some(topic => predictedTags.includes(topic));
+        return { problem: p, priority: matchesTopics ? 1 : 0 };
+      });
+      
+      // Sort by priority (matching topics first), then shuffle within each group
+      withPriority.sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return Math.random() - 0.5;
+      });
+      
+      filteredPool = withPriority.map(wp => wp.problem);
+    } else {
+      // No topic filter, just shuffle
+      filteredPool = filteredPool.sort(() => Math.random() - 0.5);
+    }
+
     // Take problems to ingest
-    const shuffled = filteredPool.sort(() => Math.random() - 0.5);
-    const toIngest = shuffled.slice(0, Math.min(needed, shuffled.length));
+    const toIngest = filteredPool.slice(0, Math.min(needed, filteredPool.length));
     
     console.log(`Attempting to ingest ${toIngest.length} problems`);
 

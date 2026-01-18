@@ -480,7 +480,7 @@ export default function Home(){
                   </div>
                   <button 
                     onClick={() => {
-                      const topics = ['Array', 'Linked List', 'Tree', 'Graph', 'String', 'DP', 'Stack/Queue', 'Matrix', 'Hash / Map', 'Binary Search', 'Two Pointers', 'Other']
+                      const topics = ['Array', 'LinkedList', 'Tree', 'Graph', 'String', 'DP', 'Stack', 'Queue', 'Matrix', 'Hashing', 'BinarySearch', 'TwoPointers', 'Other']
                       const randomTopic = topics[Math.floor(Math.random() * topics.length)]
                       setTopic(randomTopic)
                     }}
@@ -495,15 +495,16 @@ export default function Home(){
                     { id: 'All', label: 'Any Topic', icon: '∞', category: 'Core' },
                     { id: 'Array', label: 'Array', icon: '[]', category: 'Core' },
                     { id: 'String', label: 'String', icon: 'Aa', category: 'Core' },
-                    { id: 'Linked List', label: 'Linked List', icon: '→', category: 'Core' },
+                    { id: 'LinkedList', label: 'Linked List', icon: '→', category: 'Core' },
                     { id: 'Tree', label: 'Tree', icon: '🌳', category: 'Advanced' },
                     { id: 'Graph', label: 'Graph', icon: '◉', category: 'Advanced' },
                     { id: 'DP', label: 'Dynamic Programming', icon: '⚡', category: 'Advanced' },
-                    { id: 'Binary Search', label: 'Binary Search', icon: '🔍', category: 'Advanced' },
-                    { id: 'Stack/Queue', label: 'Stack/Queue', icon: '📦', category: 'Specialized' },
+                    { id: 'BinarySearch', label: 'Binary Search', icon: '🔍', category: 'Advanced' },
+                    { id: 'Stack', label: 'Stack', icon: '📚', category: 'Specialized' },
+                    { id: 'Queue', label: 'Queue', icon: '📦', category: 'Specialized' },
                     { id: 'Matrix', label: 'Matrix', icon: '▦', category: 'Specialized' },
-                    { id: 'Hash / Map', label: 'Hash/Map', icon: '#', category: 'Specialized' },
-                    { id: 'Two Pointers', label: 'Two Pointers', icon: '↔', category: 'Specialized' },
+                    { id: 'Hashing', label: 'Hash/Map', icon: '#', category: 'Specialized' },
+                    { id: 'TwoPointers', label: 'Two Pointers', icon: '↔', category: 'Specialized' },
                     { id: 'Other', label: 'Other', icon: '•••', category: 'Specialized' }
                   ]
                   

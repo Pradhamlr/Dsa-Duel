@@ -36,6 +36,9 @@ const LABEL_MAP = {
   "SQL / database aggregation problem": "Database"
 };
 
+// Confidence threshold - only accept AI predictions with strong confidence
+const CONFIDENT_THRESHOLD = 0.45;
+
 export async function classifyProblem(problem) {
   if (!process.env.HF_API_KEY) {
     throw new Error("HF_API_KEY not configured");
@@ -79,23 +82,26 @@ export async function classifyProblem(problem) {
   // Case: array of {label, score}
   if (Array.isArray(data) && data[0]?.label && data[0]?.score !== undefined) {
     const sorted = data.sort((a, b) => b.score - a.score);
+    const best = sorted[0];
 
-    let chosen = sorted
-      .filter(p => p.score > 0.4)
-      .slice(0, 2)
-      .map(p => p.label);
+    // Log for debugging
+    console.log("AI Scores:", sorted.map(s => ({
+      label: s.label,
+      score: s.score.toFixed(3)
+    })));
 
-    // Fallback: if none passed threshold, take the best one
-    if (chosen.length === 0) {
-      chosen = [sorted[0].label];
+    // If model is confident → accept
+    if (best.score >= CONFIDENT_THRESHOLD) {
+      const tag = LABEL_MAP[best.label];
+      if (!tag) {
+        return ["Other"];
+      }
+      return [tag];
     }
 
-    // Map descriptive labels to canonical tags
-    const canonicalTags = chosen
-      .map(label => LABEL_MAP[label])
-      .filter(Boolean);
-
-    return canonicalTags;
+    // Otherwise → AI is unsure → reject
+    console.log(`AI abstained: best score ${best.score.toFixed(3)} < threshold ${CONFIDENT_THRESHOLD}`);
+    return ["Other"];
   }
 
   // Case: MNLI format
@@ -106,23 +112,27 @@ export async function classifyProblem(problem) {
       label,
       score: data.scores[i]
     })).sort((a, b) => b.score - a.score);
+    
+    const best = paired[0];
 
-    let chosen = paired
-      .filter(p => p.score > 0.35)
-      .slice(0, 2)
-      .map(p => p.label);
+    // Log for debugging
+    console.log("AI Scores:", paired.map(s => ({
+      label: s.label,
+      score: s.score.toFixed(3)
+    })));
 
-    // Fallback: if none passed threshold, take the best one
-    if (chosen.length === 0) {
-      chosen = [paired[0].label];
+    // If model is confident → accept
+    if (best.score >= CONFIDENT_THRESHOLD) {
+      const tag = LABEL_MAP[best.label];
+      if (!tag) {
+        return ["Other"];
+      }
+      return [tag];
     }
 
-    // Map descriptive labels to canonical tags
-    const canonicalTags = chosen
-      .map(label => LABEL_MAP[label])
-      .filter(Boolean);
-
-    return canonicalTags;
+    // Otherwise → AI is unsure → reject
+    console.log(`AI abstained: best score ${best.score.toFixed(3)} < threshold ${CONFIDENT_THRESHOLD}`);
+    return ["Other"];
   }
 
   throw new Error("Unsupported Hugging Face response format");

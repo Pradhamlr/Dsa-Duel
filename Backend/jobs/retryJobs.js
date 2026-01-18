@@ -12,19 +12,31 @@ export async function retryPendingAITags() {
     for (const p of pending) {
       try {
         const aiTags = await classifyProblem(p);
-        const finalTags = aiTags.filter(tag => tag !== "Other").slice(0, 2);
 
+        // If AI abstained (returned "Other"), keep as pending for future retry
+        if (aiTags.includes("Other")) {
+          console.log(`AI abstained for: ${p.title} - keeping as pending`);
+          await prisma.problem.update({
+            where: { id: p.id },
+            data: {
+              aiStatus: "pending"
+            }
+          });
+          continue;
+        }
+
+        // AI succeeded with confident prediction
         await prisma.problem.update({
           where: { id: p.id },
           data: {
             aiTags,
-            finalTags,
+            finalTags: aiTags,
             tagSource: "ai",
             aiStatus: "completed"
           }
         });
 
-        console.log(`AI tagging completed for: ${p.title}`);
+        console.log(`AI tagging completed for: ${p.title} - tags: ${aiTags.join(", ")}`);
       } catch (e) {
         console.log(`AI retry failed for ${p.title}: ${e.message}`);
       }
