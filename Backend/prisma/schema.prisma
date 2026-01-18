@@ -82,6 +82,9 @@ model Problem {
   tagSource    TagSource
   aiStatus     AIStatus @default(completed)
 
+  aiRetryCount  Int      @default(0)
+  lastAiTriedAt DateTime?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
