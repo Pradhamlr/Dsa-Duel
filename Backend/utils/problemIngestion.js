@@ -1,5 +1,7 @@
 import { withPrisma } from './database.js';
 import { fetchLeetCodePool } from './leetcode.js';
+import { classifyProblem } from '../services/aiTagger.js';
+import { isBadTagSet } from './tagQuality.js';
 
 export async function ingestProblem(leetcodeProblem) {
   return await withPrisma(async (prisma) => {
@@ -14,12 +16,27 @@ export async function ingestProblem(leetcodeProblem) {
 
     let finalTags = ruleTags;
     let aiStatus = 'completed';
-    let tagSource = 'rule';
+    let tagSource = 'leetcode';
     let aiTags = [];
 
-    if (ruleTags.includes('Other')) {
-      aiStatus = 'pending';
-      tagSource = 'pending';
+    if (isBadTagSet(ruleTags)) {
+      try {
+        aiTags = await classifyProblem({
+          title: leetcodeProblem.title,
+          description: '',
+          constraints: ''
+        });
+        
+        if (aiTags && aiTags.length > 0 && !aiTags.includes('Other')) {
+          finalTags = aiTags;
+          tagSource = 'ai';
+          aiStatus = 'completed';
+        } else {
+          aiStatus = 'pending';
+        }
+      } catch (error) {
+        aiStatus = 'pending';
+      }
     }
 
     // Create problem in database

@@ -25,20 +25,14 @@ const BackIcon = () => (
 export default function Home(){
   const [currentStep, setCurrentStep] = useState(1)
   const [num, setNum] = useState(5)
-  const [difficulty, setDifficulty] = useState('mixed')
+  const [difficulty, setDifficulty] = useState('Mixed')
   const [topic, setTopic] = useState('All')
   const [searchTerm, setSearchTerm] = useState('')
   const [durationMin, setDurationMin] = useState(90)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [createdLink, setCreatedLink] = useState('')
-  const [dark, setDark] = useState(() => {
-    try {
-      const val = localStorage.getItem('duel_dark')
-      if (val === null) return true
-      return val === '1'
-    } catch { return true }
-  })
+  const [dark, setDark] = useState(false)
 
   // Verify user exists on mount
   useEffect(() => {
@@ -70,12 +64,8 @@ export default function Home(){
   }, [navigate])
 
   useEffect(()=>{
-    try {
-      if (dark) document.documentElement.classList.add('dark')
-      else document.documentElement.classList.remove('dark')
-      localStorage.setItem('duel_dark', dark ? '1' : '0')
-    } catch (e) {}
-  }, [dark])
+    // Dark mode disabled
+  }, [])
 
   async function create(){
     try {
@@ -121,7 +111,7 @@ export default function Home(){
   const difficultyCards = [
     { id: 'Easy', label: 'Easy', color: 'from-green-400 to-green-600', icon: '🟢' },
     { id: 'Medium', label: 'Medium', color: 'from-yellow-400 to-orange-500', icon: '🟡' },
-    { id: 'mixed', label: 'Mixed', color: 'from-purple-400 to-pink-600', icon: '🎯' }
+    { id: 'Mixed', label: 'Mixed', color: 'from-purple-400 to-pink-600', icon: '🎯' }
   ]
 
   return (
@@ -167,9 +157,8 @@ export default function Home(){
         
         <div className="flex items-center gap-3">
           <button 
-            onClick={()=>setDark(d=>!d)} 
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors" 
-            aria-pressed={dark}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors opacity-50 cursor-not-allowed" 
+            disabled
           >
             <SunIcon />
           </button>
@@ -480,7 +469,7 @@ export default function Home(){
                   </div>
                   <button 
                     onClick={() => {
-                      const topics = ['Array', 'LinkedList', 'Tree', 'Graph', 'String', 'DP', 'Stack', 'Queue', 'Matrix', 'Hashing', 'BinarySearch', 'TwoPointers', 'Other']
+                      const topics = ['Array', 'LinkedList', 'Tree', 'Graph', 'String', 'DP', 'Stack', 'Queue', 'Matrix', 'Hashing', 'BinarySearch', 'TwoPointers', 'Math', 'Database', 'Other']
                       const randomTopic = topics[Math.floor(Math.random() * topics.length)]
                       setTopic(randomTopic)
                     }}
@@ -505,6 +494,8 @@ export default function Home(){
                     { id: 'Matrix', label: 'Matrix', icon: '▦', category: 'Specialized' },
                     { id: 'Hashing', label: 'Hash/Map', icon: '#', category: 'Specialized' },
                     { id: 'TwoPointers', label: 'Two Pointers', icon: '↔', category: 'Specialized' },
+                    { id: 'Math', label: 'Math', icon: '🔢', category: 'Specialized' },
+                    { id: 'Database', label: 'Database', icon: '🗄️', category: 'Specialized' },
                     { id: 'Other', label: 'Other', icon: '•••', category: 'Specialized' }
                   ]
                   

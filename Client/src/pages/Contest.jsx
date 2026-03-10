@@ -259,7 +259,7 @@ export default function Contest(){
               <div 
                 key={r.userId} 
                 style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}}
-                className={`gap-4 p-3 border-b last:border-b-0 ${isCurrentUser ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                className={`gap-4 p-3 border-b last:border-b-0 ${isCurrentUser ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex items-center">
                   <span className="font-medium">

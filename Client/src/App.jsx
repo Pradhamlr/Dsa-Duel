@@ -68,20 +68,8 @@ export default function App(){
 
   // Initialize theme on app load
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('duel_dark')
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      const shouldUseDark = savedTheme === '1' || (savedTheme === null && prefersDark)
-      
-      if (shouldUseDark) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-    } catch (e) {
-      // Fallback to light theme if localStorage is not available
-      document.documentElement.classList.remove('dark')
-    }
+    // Force light theme only
+    document.documentElement.classList.remove('dark')
   }, [])
 
   const handleAuthSuccess = (userData) => {

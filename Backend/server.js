@@ -1,7 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import errorHandler from './middleware/errorHandler.js';
-import { retryPendingAITags } from './jobs/retryJobs.js';
+
+// Load environment variables first
+dotenv.config();
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -51,13 +54,18 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-
     console.log('Backend listening on', PORT)
-
-    setInterval(() => {
-        retryPendingAITags().catch(err =>
-        console.error("AI retry job failed:", err)
-        );
-    }, 60 * 1000);
-
+    
+    // Only start AI retry job if DATABASE_URL is available
+    if (process.env.DATABASE_URL) {
+        import('./jobs/retryJobs.js').then(({ retryPendingAITags }) => {
+            setInterval(() => {
+                retryPendingAITags().catch(err =>
+                    console.error("AI retry job failed:", err)
+                );
+            }, 60 * 1000);
+        });
+    } else {
+        console.log('DATABASE_URL not found - AI retry job disabled');
+    }
 });
