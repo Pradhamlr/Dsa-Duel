@@ -8,6 +8,7 @@ import Auth from './components/Auth'
 import ForgotPassword from './components/ForgotPassword'
 import EmailVerification from './components/EmailVerification'
 import { ToastProvider } from './contexts/ToastContext'
+import { clearAuthSession } from './utils/api'
 
 export default function App(){
   const [user, setUser] = useState(null)
@@ -43,11 +44,7 @@ export default function App(){
               setUser(parsedUser)
             } else {
               // User deleted or token invalid - clear everything
-              localStorage.removeItem('duel_access_token')
-              localStorage.removeItem('duel_refresh_token')
-              localStorage.removeItem('duel_user')
-              localStorage.removeItem('duel_userId')
-              localStorage.removeItem('duel_name')
+              clearAuthSession()
               setUser(null)
             }
           } catch (verifyError) {
@@ -55,9 +52,7 @@ export default function App(){
             setUser(parsedUser)
           }
         } catch (parseError) {
-          localStorage.removeItem('duel_access_token')
-          localStorage.removeItem('duel_refresh_token')
-          localStorage.removeItem('duel_user')
+          clearAuthSession()
         }
       }
       setLoading(false)
@@ -83,11 +78,7 @@ export default function App(){
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('duel_access_token')
-    localStorage.removeItem('duel_refresh_token')
-    localStorage.removeItem('duel_user')
-    localStorage.removeItem('duel_userId')
-    localStorage.removeItem('duel_name')
+    clearAuthSession()
     setUser(null)
   }
 

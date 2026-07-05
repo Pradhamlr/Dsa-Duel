@@ -2,23 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Timer from '../components/Timer'
 import Toast from '../components/Toast'
-import { authFetch, API } from '../utils/api'
+import { authFetch, API, clearAuthSession, getStoredUserId } from '../utils/api'
 
 export default function Contest(){
   const { id } = useParams()
   const [contest, setContest] = useState(null)
-  const [userId] = useState(() => {
-    try {
-      const existing = localStorage.getItem('duel_userId')
-      if (existing) return existing
-      const id = Math.random().toString(36).slice(2,9)
-      localStorage.setItem('duel_userId', id)
-      return id
-    } catch (err) {
-      // localStorage may not be available in some environments; fall back
-      return Math.random().toString(36).slice(2,9)
-    }
-  })
+  const [userId, setUserId] = useState(() => getStoredUserId())
   const [loading, setLoading] = useState(true)
   const [ended, setEnded] = useState(false)
   const [durationOverrideMin, setDurationOverrideMin] = useState('')
@@ -41,13 +30,17 @@ export default function Contest(){
         const response = await authFetch('/auth/me')
         if (!response.ok) {
           // User doesn't exist - clear data and redirect home
-          localStorage.removeItem('duel_access_token')
-          localStorage.removeItem('duel_refresh_token')
-          localStorage.removeItem('duel_user')
-          localStorage.removeItem('duel_userId')
-          localStorage.removeItem('duel_name')
+          clearAuthSession()
           navigate('/')
           window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
+          return
+        }
+
+        const data = await response.json()
+        if (data?.user?.id) {
+          setUserId(data.user.id)
+          localStorage.setItem('duel_userId', data.user.id)
+          localStorage.setItem('duel_user', JSON.stringify(data.user))
         }
       } catch (error) {
         console.error('User verification error:', error)
@@ -127,6 +120,11 @@ export default function Contest(){
   }
 
   async function mark(idx, solved){
+    if (!userId) {
+      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message: 'Please log in again before marking problems', type:'error'}}))
+      return
+    }
+
     // optimistic update: reflect immediately in UI
     setContest(prev => {
       if (!prev) return prev
@@ -241,7 +239,7 @@ export default function Contest(){
           >
             <option value="solved-desc">Most Solved</option>
             <option value="solved-asc">Least Solved</option>
-            <option value="name-asc">Name A→Z</option>
+            <option value="name-asc">Name A-Z</option>
           </select>
         </div>
         
@@ -263,7 +261,7 @@ export default function Contest(){
               >
                 <div className="flex items-center">
                   <span className="font-medium">
-                    {idx === 0 && r.solvedCount > 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`}
+                    {idx === 0 && r.solvedCount > 0 ? '#1' : `#${idx+1}`}
                   </span>
                 </div>
                 <div>
@@ -424,7 +422,7 @@ export default function Contest(){
                 onClick={()=>navigate('/')} 
                 className="btn-neutral btn-sm flex items-center gap-2"
               >
-                🏠 Home
+                Home
               </button>
             </div>
             
@@ -432,7 +430,7 @@ export default function Contest(){
               {contest.problems.map((p, i) => {
                 const solved = contest.results && contest.results[userId] && contest.results[userId].solved && contest.results[userId].solved[i]
                 const difficultyColor = p.difficulty === 'Easy' ? 'text-green-500' : p.difficulty === 'Medium' ? 'text-yellow-500' : 'text-red-500'
-                const difficultyEmoji = p.difficulty === 'Easy' ? '🟢' : p.difficulty === 'Medium' ? '🟡' : '🔴'
+                const difficultyLabel = p.difficulty || 'Medium'
                 
                 return (
                   <div 
@@ -450,10 +448,10 @@ export default function Contest(){
                             <h3 className="font-semibold text-lg mb-1">{p.title}</h3>
                             <div className="flex items-center gap-3 text-sm">
                               <span className={`flex items-center gap-1 ${difficultyColor}`}>
-                                {difficultyEmoji} {p.difficulty || 'Medium'}
+                                {difficultyLabel}
                               </span>
                               <span className="text-muted flex items-center gap-1">
-                                🏷️ {problemTypes[i]}
+                                Tags: {problemTypes[i]}
                               </span>
                             </div>
                           </div>
@@ -465,7 +463,7 @@ export default function Contest(){
                           rel="noreferrer" 
                           className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
                         >
-                          Open on LeetCode →
+                          Open on LeetCode -&gt;
                         </a>
                       </div>
                       

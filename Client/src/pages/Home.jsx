@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Toast from '../components/Toast'
-import { authFetch } from '../utils/api'
+import { authFetch, clearAuthSession } from '../utils/api'
 
 const SunIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -47,11 +47,7 @@ export default function Home(){
         const response = await authFetch('/auth/me')
         if (!response.ok) {
           // User doesn't exist - clear data and redirect home
-          localStorage.removeItem('duel_access_token')
-          localStorage.removeItem('duel_refresh_token')
-          localStorage.removeItem('duel_user')
-          localStorage.removeItem('duel_userId')
-          localStorage.removeItem('duel_name')
+          clearAuthSession()
           navigate('/')
           window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
         }
@@ -109,9 +105,9 @@ export default function Home(){
   ]
 
   const difficultyCards = [
-    { id: 'Easy', label: 'Easy', color: 'from-green-400 to-green-600', icon: '🟢' },
-    { id: 'Medium', label: 'Medium', color: 'from-yellow-400 to-orange-500', icon: '🟡' },
-    { id: 'Mixed', label: 'Mixed', color: 'from-purple-400 to-pink-600', icon: '🎯' }
+    { id: 'Easy', label: 'Easy', color: 'from-green-400 to-green-600', icon: 'E' },
+    { id: 'Medium', label: 'Medium', color: 'from-yellow-400 to-orange-500', icon: 'M' },
+    { id: 'Mixed', label: 'Mixed', color: 'from-purple-400 to-pink-600', icon: 'Mix' }
   ]
 
   return (
@@ -188,8 +184,7 @@ export default function Home(){
           </button>
           <button 
             onClick={() => {
-              localStorage.removeItem('duel_token')
-              localStorage.removeItem('duel_user')
+              clearAuthSession()
               window.location.reload()
             }}
             style={{
@@ -481,22 +476,22 @@ export default function Home(){
                 
                 {(() => {
                   const allTopics = [
-                    { id: 'All', label: 'Any Topic', icon: '∞', category: 'Core' },
+                    { id: 'All', label: 'Any Topic', icon: 'All', category: 'Core' },
                     { id: 'Array', label: 'Array', icon: '[]', category: 'Core' },
                     { id: 'String', label: 'String', icon: 'Aa', category: 'Core' },
-                    { id: 'LinkedList', label: 'Linked List', icon: '→', category: 'Core' },
-                    { id: 'Tree', label: 'Tree', icon: '🌳', category: 'Advanced' },
-                    { id: 'Graph', label: 'Graph', icon: '◉', category: 'Advanced' },
-                    { id: 'DP', label: 'Dynamic Programming', icon: '⚡', category: 'Advanced' },
-                    { id: 'BinarySearch', label: 'Binary Search', icon: '🔍', category: 'Advanced' },
-                    { id: 'Stack', label: 'Stack', icon: '📚', category: 'Specialized' },
-                    { id: 'Queue', label: 'Queue', icon: '📦', category: 'Specialized' },
-                    { id: 'Matrix', label: 'Matrix', icon: '▦', category: 'Specialized' },
+                    { id: 'LinkedList', label: 'Linked List', icon: '->', category: 'Core' },
+                    { id: 'Tree', label: 'Tree', icon: 'T', category: 'Advanced' },
+                    { id: 'Graph', label: 'Graph', icon: 'G', category: 'Advanced' },
+                    { id: 'DP', label: 'Dynamic Programming', icon: 'DP', category: 'Advanced' },
+                    { id: 'BinarySearch', label: 'Binary Search', icon: 'BS', category: 'Advanced' },
+                    { id: 'Stack', label: 'Stack', icon: 'S', category: 'Specialized' },
+                    { id: 'Queue', label: 'Queue', icon: 'Q', category: 'Specialized' },
+                    { id: 'Matrix', label: 'Matrix', icon: 'Mx', category: 'Specialized' },
                     { id: 'Hashing', label: 'Hash/Map', icon: '#', category: 'Specialized' },
-                    { id: 'TwoPointers', label: 'Two Pointers', icon: '↔', category: 'Specialized' },
-                    { id: 'Math', label: 'Math', icon: '🔢', category: 'Specialized' },
-                    { id: 'Database', label: 'Database', icon: '🗄️', category: 'Specialized' },
-                    { id: 'Other', label: 'Other', icon: '•••', category: 'Specialized' }
+                    { id: 'TwoPointers', label: 'Two Pointers', icon: '<>', category: 'Specialized' },
+                    { id: 'Math', label: 'Math', icon: '123', category: 'Specialized' },
+                    { id: 'Database', label: 'Database', icon: 'DB', category: 'Specialized' },
+                    { id: 'Other', label: 'Other', icon: '...', category: 'Specialized' }
                   ]
                   
                   const filteredTopics = allTopics.filter(t => 

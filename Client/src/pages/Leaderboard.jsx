@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authFetch } from '../utils/api'
+import { authFetch, clearAuthSession, getStoredUserId } from '../utils/api'
 
 // Use same API default pattern as other pages
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
@@ -23,11 +23,7 @@ export default function Leaderboard(){
         const response = await authFetch('/auth/me')
         if (!response.ok) {
           // User doesn't exist - clear data and redirect home
-          localStorage.removeItem('duel_access_token')
-          localStorage.removeItem('duel_refresh_token')
-          localStorage.removeItem('duel_user')
-          localStorage.removeItem('duel_userId')
-          localStorage.removeItem('duel_name')
+          clearAuthSession()
           navigate('/')
           window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
         }
@@ -123,8 +119,8 @@ export default function Leaderboard(){
               <div>
                 {rows.map((r, idx) => {
                   const isTopThree = idx < 3
-                  const isCurrentUser = r.userId === (localStorage.getItem('duel_userId') || '')
-                  const rankEmoji = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`
+                  const isCurrentUser = r.userId === getStoredUserId()
+                  const rankLabel = `#${idx + 1}`
                   
                   return (
                     <div 
@@ -136,7 +132,7 @@ export default function Leaderboard(){
                     >
                       <div className="flex items-center">
                         <span className={`${isTopThree ? 'text-xl' : 'text-lg'}`}>
-                          {rankEmoji}
+                          {rankLabel}
                         </span>
                       </div>
                       

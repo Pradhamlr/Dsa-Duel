@@ -1,5 +1,28 @@
 const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
+export const clearAuthSession = () => {
+  localStorage.removeItem('duel_access_token')
+  localStorage.removeItem('duel_refresh_token')
+  localStorage.removeItem('duel_user')
+  localStorage.removeItem('duel_userId')
+  localStorage.removeItem('duel_name')
+  localStorage.removeItem('duel_token')
+}
+
+export const getStoredUser = () => {
+  try {
+    const raw = localStorage.getItem('duel_user')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export const getStoredUserId = () => {
+  const user = getStoredUser()
+  return user?.id || localStorage.getItem('duel_userId') || ''
+}
+
 // Helper function to get auth headers
 export const getAuthHeaders = () => {
   const token = localStorage.getItem('duel_access_token')
@@ -59,9 +82,7 @@ export const authFetch = async (url, options = {}) => {
       })
     } else {
       // Refresh failed, clear tokens and reload
-      localStorage.removeItem('duel_access_token')
-      localStorage.removeItem('duel_refresh_token')
-      localStorage.removeItem('duel_user')
+      clearAuthSession()
       window.location.reload()
       return
     }

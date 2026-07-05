@@ -90,7 +90,7 @@ export async function classifyProblem(problem) {
       score: s.score.toFixed(3)
     })));
 
-    // If model is confident → accept
+    // If model is confident, accept.
     if (best.score >= CONFIDENT_THRESHOLD) {
       const tag = LABEL_MAP[best.label];
       if (!tag) {
@@ -99,7 +99,7 @@ export async function classifyProblem(problem) {
       return [tag];
     }
 
-    // Otherwise → AI is unsure → reject
+    // Otherwise, AI is unsure, so reject.
     console.log(`AI abstained: best score ${best.score.toFixed(3)} < threshold ${CONFIDENT_THRESHOLD}`);
     return ["Other"];
   }
@@ -121,7 +121,7 @@ export async function classifyProblem(problem) {
       score: s.score.toFixed(3)
     })));
 
-    // If model is confident → accept
+    // If model is confident, accept.
     if (best.score >= CONFIDENT_THRESHOLD) {
       const tag = LABEL_MAP[best.label];
       if (!tag) {
@@ -130,7 +130,7 @@ export async function classifyProblem(problem) {
       return [tag];
     }
 
-    // Otherwise → AI is unsure → reject
+    // Otherwise, AI is unsure, so reject.
     console.log(`AI abstained: best score ${best.score.toFixed(3)} < threshold ${CONFIDENT_THRESHOLD}`);
     return ["Other"];
   }

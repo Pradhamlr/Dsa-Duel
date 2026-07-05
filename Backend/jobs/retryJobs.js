@@ -66,7 +66,7 @@ export async function retryPendingAITags() {
           }
         });
 
-        console.log(`✓ AI tagging completed for "${p.title}" - tags: ${aiTags.join(", ")}`);
+        console.log(`AI tagging completed for "${p.title}" - tags: ${aiTags.join(", ")}`);
       } catch (e) {
         console.log(`AI retry failed for "${p.title}": ${e.message}`);
       }
