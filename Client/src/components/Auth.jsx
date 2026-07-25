@@ -86,6 +86,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
       const res = await fetch(`${API}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload)
       })
 

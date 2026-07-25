@@ -10,6 +10,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const REFRESH_COOKIE_NAME = 'duel_refresh_token';
 const GOOGLE_SCOPES = ['openid', 'email', 'profile'];
 
 const getGoogleOAuthClient = () => {
@@ -34,11 +35,12 @@ const issueTokens = async (prisma, user) => {
     process.env.JWT_SECRET,
     { expiresIn: REFRESH_TOKEN_TTL }
   );
+  const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      refreshToken,
+      refreshToken: hashedRefreshToken,
       refreshTokenExpiry: new Date(Date.now() + REFRESH_TOKEN_TTL_MS)
     }
   });
@@ -55,6 +57,65 @@ const publicUser = (user) => ({
 
 const randomSixDigitOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
+const refreshCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: REFRESH_TOKEN_TTL_MS,
+    path: '/auth'
+  };
+};
+
+const setRefreshCookie = (res, refreshToken) => {
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
+};
+
+const clearRefreshCookie = (res) => {
+  const { maxAge, ...options } = refreshCookieOptions();
+  res.clearCookie(REFRESH_COOKIE_NAME, options);
+};
+
+const getCookieValue = (req, name) => {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+
+  return cookieHeader
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .reduce((match, cookie) => {
+      if (match) return match;
+      const separatorIndex = cookie.indexOf('=');
+      if (separatorIndex === -1) return null;
+      const key = cookie.slice(0, separatorIndex);
+      const value = cookie.slice(separatorIndex + 1);
+      return key === name ? decodeURIComponent(value) : null;
+    }, null);
+};
+
+const getRefreshTokenFromRequest = (req) => (
+  getCookieValue(req, REFRESH_COOKIE_NAME) ||
+  req.body?.refreshToken ||
+  req.validatedBody?.refreshToken ||
+  null
+);
+
+const refreshTokenMatches = async (storedToken, candidateToken) => {
+  if (!storedToken || !candidateToken) return false;
+
+  if (storedToken === candidateToken) {
+    return true;
+  }
+
+  try {
+    return await bcrypt.compare(candidateToken, storedToken);
+  } catch {
+    return false;
+  }
+};
+
 const createOAuthState = () => jwt.sign(
   { provider: 'google' },
   process.env.JWT_SECRET,
@@ -70,11 +131,10 @@ const verifyOAuthState = (state) => {
   }
 };
 
-const buildOAuthSuccessRedirect = ({ accessToken, refreshToken, user }) => {
+const buildOAuthSuccessRedirect = ({ accessToken, user }) => {
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
   const hash = new URLSearchParams({
     accessToken,
-    refreshToken,
     user: JSON.stringify(user)
   });
 
@@ -182,7 +242,11 @@ export const login = asyncHandler(async (req, res) => {
     };
   });
 
-  res.json(result);
+  setRefreshCookie(res, result.refreshToken);
+  res.json({
+    accessToken: result.accessToken,
+    user: result.user
+  });
 });
 
 export const getMe = asyncHandler(async (req, res) => {
@@ -302,7 +366,11 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.validatedBody;
+  const refreshToken = getRefreshTokenFromRequest(req);
+
+  if (!refreshToken) {
+    throw new AppError('Refresh token required', 401, 'REFRESH_TOKEN_REQUIRED');
+  }
 
   const result = await withPrisma(async (prisma) => {
     let decoded;
@@ -320,14 +388,17 @@ export const refreshToken = asyncHandler(async (req, res) => {
       where: { id: decoded.userId }
     });
 
-    if (!user || user.refreshToken !== refreshToken || !user.refreshTokenExpiry || new Date() > user.refreshTokenExpiry) {
+    const validStoredToken = await refreshTokenMatches(user?.refreshToken, refreshToken);
+
+    if (!user || !validStoredToken || !user.refreshTokenExpiry || new Date() > user.refreshTokenExpiry) {
       throw new AppError('Invalid or expired refresh token', 401, 'INVALID_REFRESH_TOKEN');
     }
 
     return issueTokens(prisma, user);
   });
 
-  res.json(result);
+  setRefreshCookie(res, result.refreshToken);
+  res.json({ accessToken: result.accessToken });
 });
 
 export const verifyEmail = asyncHandler(async (req, res) => {
@@ -366,7 +437,11 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     };
   });
 
-  res.json(result);
+  setRefreshCookie(res, result.refreshToken);
+  res.json({
+    accessToken: result.accessToken,
+    user: result.user
+  });
 });
 
 export const logout = asyncHandler(async (req, res) => {
@@ -380,6 +455,7 @@ export const logout = asyncHandler(async (req, res) => {
     });
   });
 
+  clearRefreshCookie(res);
   res.json({ message: 'Logged out successfully' });
 });
 
@@ -473,7 +549,11 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
       };
     });
 
-    return res.redirect(buildOAuthSuccessRedirect(result));
+    setRefreshCookie(res, result.refreshToken);
+    return res.redirect(buildOAuthSuccessRedirect({
+      accessToken: result.accessToken,
+      user: result.user
+    }));
   } catch (err) {
     console.error('Google OAuth callback failed:', err);
     return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_FAILED'));

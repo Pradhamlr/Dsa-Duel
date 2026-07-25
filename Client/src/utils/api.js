@@ -23,9 +23,8 @@ export const getStoredUserId = () => {
   return user?.id || localStorage.getItem('duel_userId') || ''
 }
 
-export const storeAuthSession = ({ accessToken, refreshToken, user }) => {
+export const storeAuthSession = ({ accessToken, user }) => {
   localStorage.setItem('duel_access_token', accessToken)
-  localStorage.setItem('duel_refresh_token', refreshToken)
   localStorage.setItem('duel_user', JSON.stringify(user))
   localStorage.setItem('duel_userId', user.id)
   localStorage.setItem('duel_name', user.name || '')
@@ -42,20 +41,16 @@ export const getAuthHeaders = () => {
 
 // Refresh access token
 const refreshAccessToken = async () => {
-  const refreshToken = localStorage.getItem('duel_refresh_token')
-  if (!refreshToken) return false
-
   try {
     const response = await fetch(`${API}/auth/refresh-token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
+      credentials: 'include'
     })
 
     if (response.ok) {
       const data = await response.json()
       localStorage.setItem('duel_access_token', data.accessToken)
-      localStorage.setItem('duel_refresh_token', data.refreshToken)
       return true
     }
   } catch (error) {
@@ -69,6 +64,7 @@ const refreshAccessToken = async () => {
 export const authFetch = async (url, options = {}) => {
   let response = await fetch(`${API}${url}`, {
     ...options,
+    credentials: options.credentials || 'include',
     headers: {
       ...getAuthHeaders(),
       ...options.headers
@@ -83,6 +79,7 @@ export const authFetch = async (url, options = {}) => {
       // Retry with new token
       response = await fetch(`${API}${url}`, {
         ...options,
+        credentials: options.credentials || 'include',
         headers: {
           ...getAuthHeaders(),
           ...options.headers

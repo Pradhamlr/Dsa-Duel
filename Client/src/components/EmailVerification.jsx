@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { API } from '../utils/api.js'
+import { API, storeAuthSession } from '../utils/api.js'
 
 export default function EmailVerification({ email, onVerificationSuccess, onBack }) {
   const [otp, setOtp] = useState('')
@@ -15,6 +15,7 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
       const res = await fetch(`${API}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, otp })
       })
 
@@ -24,11 +25,7 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
         throw new Error(data.error || 'Verification failed')
       }
 
-      localStorage.setItem('duel_access_token', data.accessToken)
-      localStorage.setItem('duel_refresh_token', data.refreshToken)
-      localStorage.setItem('duel_user', JSON.stringify(data.user))
-      localStorage.setItem('duel_userId', data.user.id)
-      localStorage.setItem('duel_name', data.user.name)
+      storeAuthSession(data)
 
       onVerificationSuccess(data.user)
     } catch (err) {

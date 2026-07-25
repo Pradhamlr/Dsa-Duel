@@ -3,7 +3,7 @@ import { register, login, getMe, forgotPassword, verifyOTP, resetPassword, refre
 import authMiddleware from '../middleware/authMiddleware.js';
 import { loginRateLimit, forgotPasswordRateLimit, otpRateLimit } from '../middleware/rateLimitMiddleware.js';
 import validateDto from '../middleware/validateDto.js';
-import { emailDto, loginDto, otpDto, refreshTokenDto, registerDto, resetPasswordDto } from '../dtos/authDtos.js';
+import { emailDto, loginDto, otpDto, registerDto, resetPasswordDto } from '../dtos/authDtos.js';
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ router.get('/me', authMiddleware, getMe);
 router.post('/forgot-password', forgotPasswordRateLimit, validateDto(emailDto), forgotPassword);
 router.post('/verify-otp', otpRateLimit, validateDto(otpDto), verifyOTP);
 router.post('/reset-password', validateDto(resetPasswordDto), resetPassword);
-router.post('/refresh-token', validateDto(refreshTokenDto), refreshToken);
+router.post('/refresh-token', refreshToken);
 router.post('/verify-email', otpRateLimit, validateDto(otpDto), verifyEmail);
 router.post('/logout', authMiddleware, logout);
 router.get('/google', startGoogleOAuth);
