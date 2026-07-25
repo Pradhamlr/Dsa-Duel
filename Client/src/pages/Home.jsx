@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Toast from '../components/Toast'
-import { authFetch, clearAuthSession } from '../utils/api'
+import { authFetch, clearAuthSession, logout } from '../utils/api'
 
 const SunIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -183,8 +183,8 @@ export default function Home(){
             LEADERBOARD
           </button>
           <button 
-            onClick={() => {
-              clearAuthSession()
+            onClick={async () => {
+              await logout()
               window.location.reload()
             }}
             style={{

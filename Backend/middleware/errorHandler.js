@@ -2,8 +2,9 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  // Log error for debugging
-  console.error(err);
+  if (!err.isOperational) {
+    console.error(err);
+  }
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
@@ -26,29 +27,34 @@ const errorHandler = (err, req, res, next) => {
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
     const message = 'Invalid token';
-    error = { message, statusCode: 401 };
+    error = { message, statusCode: 401, code: 'INVALID_TOKEN' };
   }
 
   if (err.name === 'TokenExpiredError') {
     const message = 'Token expired';
-    error = { message, statusCode: 401 };
+    error = { message, statusCode: 401, code: 'TOKEN_EXPIRED' };
   }
 
   // Prisma errors
   if (err.code === 'P2002') {
     const message = 'Duplicate field value entered';
-    error = { message, statusCode: 400 };
+    error = { message, statusCode: 400, code: 'DUPLICATE_FIELD' };
   }
 
   if (err.code === 'P2025') {
     const message = 'Record not found';
-    error = { message, statusCode: 404 };
+    error = { message, statusCode: 404, code: 'RECORD_NOT_FOUND' };
   }
 
   const response = {
     success: false,
-    error: error.message || 'Server Error'
+    error: error.message || 'Server Error',
+    code: error.code || 'SERVER_ERROR'
   };
+
+  if (error.details) {
+    response.details = error.details;
+  }
 
   // Only include stack trace in development
   if (process.env.NODE_ENV === 'development') {

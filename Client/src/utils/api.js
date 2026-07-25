@@ -91,4 +91,14 @@ export const authFetch = async (url, options = {}) => {
   return response
 }
 
+export const logout = async () => {
+  try {
+    await authFetch('/auth/logout', { method: 'POST' })
+  } catch (error) {
+    console.error('Logout request failed:', error)
+  } finally {
+    clearAuthSession()
+  }
+}
+
 export { API }
