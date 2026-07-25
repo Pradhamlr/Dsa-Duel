@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { withPrisma } from '../utils/database.js';
 import { sendEmail } from '../utils/sendEmail.js';
 import AppError from '../utils/AppError.js';
@@ -9,6 +10,17 @@ import asyncHandler from '../utils/asyncHandler.js';
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '7d';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const GOOGLE_SCOPES = ['openid', 'email', 'profile'];
+
+const getGoogleOAuthClient = () => {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = process.env;
+
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+    throw new AppError('Google OAuth is not configured', 500, 'GOOGLE_OAUTH_NOT_CONFIGURED');
+  }
+
+  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+};
 
 const issueTokens = async (prisma, user) => {
   const accessToken = jwt.sign(
@@ -42,6 +54,39 @@ const publicUser = (user) => ({
 });
 
 const randomSixDigitOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const createOAuthState = () => jwt.sign(
+  { provider: 'google' },
+  process.env.JWT_SECRET,
+  { expiresIn: '10m' }
+);
+
+const verifyOAuthState = (state) => {
+  try {
+    const decoded = jwt.verify(state, process.env.JWT_SECRET);
+    return decoded.provider === 'google';
+  } catch {
+    return false;
+  }
+};
+
+const buildOAuthSuccessRedirect = ({ accessToken, refreshToken, user }) => {
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const hash = new URLSearchParams({
+    accessToken,
+    refreshToken,
+    user: JSON.stringify(user)
+  });
+
+  return `${clientUrl}/#${hash.toString()}`;
+};
+
+const buildOAuthErrorRedirect = (code) => {
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const query = new URLSearchParams({ oauthError: code });
+
+  return `${clientUrl}/?${query.toString()}`;
+};
 
 export const register = asyncHandler(async (req, res) => {
   const { email, username, password, name } = req.validatedBody;
@@ -336,4 +381,101 @@ export const logout = asyncHandler(async (req, res) => {
   });
 
   res.json({ message: 'Logged out successfully' });
+});
+
+export const startGoogleOAuth = asyncHandler(async (req, res) => {
+  const oauthClient = getGoogleOAuthClient();
+  const url = oauthClient.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'select_account',
+    scope: GOOGLE_SCOPES,
+    state: createOAuthState()
+  });
+
+  res.redirect(url);
+});
+
+export const googleOAuthCallback = asyncHandler(async (req, res) => {
+  const { code, state, error } = req.query;
+
+  if (error) {
+    return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_DENIED'));
+  }
+
+  if (!code || !state || !verifyOAuthState(state)) {
+    return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_INVALID_STATE'));
+  }
+
+  const oauthClient = getGoogleOAuthClient();
+
+  try {
+    const { tokens } = await oauthClient.getToken(String(code));
+
+    if (!tokens.id_token) {
+      throw new AppError('Google did not return an identity token', 401, 'GOOGLE_ID_TOKEN_MISSING');
+    }
+
+    const ticket = await oauthClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const googleId = payload?.sub;
+    const email = payload?.email;
+    const emailVerified = payload?.email_verified === true;
+    const name = payload?.name || email?.split('@')[0] || 'Google User';
+
+    if (!googleId || !email || !emailVerified) {
+      throw new AppError('Google account email is not verified', 401, 'GOOGLE_EMAIL_NOT_VERIFIED');
+    }
+
+    const result = await withPrisma(async (prisma) => {
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { googleId },
+            { email }
+          ]
+        }
+      });
+
+      if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId: user.googleId || googleId,
+            authProvider: user.authProvider || 'google',
+            emailVerified: true,
+            name: user.name || name,
+            lastLogin: new Date()
+          }
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            id: randomUUID(),
+            email,
+            name,
+            googleId,
+            authProvider: 'google',
+            emailVerified: true,
+            lastLogin: new Date()
+          }
+        });
+      }
+
+      const tokens = await issueTokens(prisma, user);
+
+      return {
+        ...tokens,
+        user: publicUser(user)
+      };
+    });
+
+    return res.redirect(buildOAuthSuccessRedirect(result));
+  } catch (err) {
+    console.error('Google OAuth callback failed:', err);
+    return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_FAILED'));
+  }
 });

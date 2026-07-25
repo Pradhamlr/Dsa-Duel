@@ -23,6 +23,14 @@ export const getStoredUserId = () => {
   return user?.id || localStorage.getItem('duel_userId') || ''
 }
 
+export const storeAuthSession = ({ accessToken, refreshToken, user }) => {
+  localStorage.setItem('duel_access_token', accessToken)
+  localStorage.setItem('duel_refresh_token', refreshToken)
+  localStorage.setItem('duel_user', JSON.stringify(user))
+  localStorage.setItem('duel_userId', user.id)
+  localStorage.setItem('duel_name', user.name || '')
+}
+
 // Helper function to get auth headers
 export const getAuthHeaders = () => {
   const token = localStorage.getItem('duel_access_token')

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useToast } from '../contexts/ToastContext'
+import { API, storeAuthSession } from '../utils/api'
 
 const EyeSVG = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -21,8 +22,6 @@ const CheckSVG = ({ size = 12, color = '#fff' }) => (
     <path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
-
-const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
 
 export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onForgotPassword }) {
   const { showError, showSuccess } = useToast()
@@ -97,11 +96,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
       }
 
       if (isLogin) {
-        localStorage.setItem('duel_access_token', data.accessToken)
-        localStorage.setItem('duel_refresh_token', data.refreshToken)
-        localStorage.setItem('duel_user', JSON.stringify(data.user))
-        localStorage.setItem('duel_userId', data.user.id)
-        localStorage.setItem('duel_name', data.user.name)
+        storeAuthSession(data)
 
         showSuccess('Welcome back!')
         onAuthSuccess(data.user)
@@ -115,6 +110,10 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${API}/auth/google`
   }
 
   return (
@@ -387,6 +386,19 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
                   Please wait...
                 </div>
               ) : (isLogin ? 'Sign In' : 'Create Account')}
+            </button>
+            <div className="flex items-center gap-3 my-5">
+              <div className="h-px flex-1 bg-gray-200"></div>
+              <span className="text-xs font-medium uppercase tracking-wide text-gray-400">or</span>
+              <div className="h-px flex-1 bg-gray-200"></div>
+            </div>
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-gray-700 font-semibold shadow-sm hover:border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              Continue with Google
             </button>
             <style jsx>{`
               @keyframes spin {

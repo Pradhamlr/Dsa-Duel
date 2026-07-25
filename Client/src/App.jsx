@@ -8,7 +8,7 @@ import Auth from './components/Auth'
 import ForgotPassword from './components/ForgotPassword'
 import EmailVerification from './components/EmailVerification'
 import { ToastProvider } from './contexts/ToastContext'
-import { clearAuthSession } from './utils/api'
+import { clearAuthSession, storeAuthSession } from './utils/api'
 
 export default function App(){
   const [user, setUser] = useState(null)
@@ -22,6 +22,31 @@ export default function App(){
   // Check for existing authentication
   useEffect(() => {
     const verifyUser = async () => {
+      if (window.location.hash) {
+        const params = new URLSearchParams(window.location.hash.slice(1))
+        const accessToken = params.get('accessToken')
+        const refreshToken = params.get('refreshToken')
+        const rawUser = params.get('user')
+
+        if (accessToken && refreshToken && rawUser) {
+          try {
+            const oauthUser = JSON.parse(rawUser)
+            storeAuthSession({ accessToken, refreshToken, user: oauthUser })
+            window.history.replaceState(null, '', window.location.pathname || '/')
+            setUser(oauthUser)
+            setLoading(false)
+            return
+          } catch {
+            clearAuthSession()
+          }
+        }
+      }
+
+      const oauthError = new URLSearchParams(window.location.search).get('oauthError')
+      if (oauthError) {
+        window.history.replaceState(null, '', window.location.pathname || '/')
+      }
+
       const token = localStorage.getItem('duel_access_token')
       const userData = localStorage.getItem('duel_user')
       
