@@ -2,8 +2,14 @@ import axios from 'axios';
 
 const GRAPHQL_URL = 'https://leetcode.com/graphql';
 const PAGE_SIZE = 100; // server clamps `limit` to this regardless of what's requested
-const PAGE_CONCURRENCY = 5; // bounded, so this stays polite to an unofficial endpoint
-const BATCH_DELAY_MS = 150;
+// Sequential, not concurrent: empirically, LeetCode/Cloudflare throttles concurrent
+// connections from one IP much more aggressively than sequential requests (confirmed
+// live -- 2/5 concurrent requests timed out while a lone sequential request succeeded
+// in under a second). This fetch no longer sits in a user's request path (see
+// ensureProblemsAvailable / syncNewProblems) -- it's an unattended background job now,
+// so reliability matters far more than shaving ~20s off a run nobody is waiting on.
+const PAGE_CONCURRENCY = 1;
+const BATCH_DELAY_MS = 250;
 const POOL_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const PROBLEM_LIST_QUERY = `
@@ -61,7 +67,10 @@ export async function fetchQuestionContent(slug) {
   return response.data?.data?.question?.content || '';
 }
 
-const fetchQuestionPage = async (skip) => {
+const PAGE_RETRY_ATTEMPTS = 3;
+const PAGE_RETRY_DELAY_MS = 1000;
+
+const fetchQuestionPageOnce = async (skip) => {
   const response = await axios.post(
     GRAPHQL_URL,
     {
@@ -84,6 +93,23 @@ const fetchQuestionPage = async (skip) => {
   }
 
   return payload;
+};
+
+// A single page occasionally timing out against this unofficial endpoint shouldn't
+// fail the entire multi-page fetch -- retry a few times with a short backoff first.
+const fetchQuestionPage = async (skip) => {
+  let lastError;
+  for (let attempt = 1; attempt <= PAGE_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await fetchQuestionPageOnce(skip);
+    } catch (error) {
+      lastError = error;
+      if (attempt < PAGE_RETRY_ATTEMPTS) {
+        await sleep(PAGE_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+  throw lastError;
 };
 
 const fetchAllQuestions = async () => {

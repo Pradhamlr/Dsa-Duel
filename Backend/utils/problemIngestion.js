@@ -20,6 +20,7 @@ export async function ingestProblem(leetcodeProblem) {
     let tagSource = 'leetcode';
     let aiStatus = 'completed';
     let aiTags = [];
+    let lastAiTriedAt = null;
 
     // Only the residual LeetCode's own tags don't resolve reaches the LLM tier.
     if (isBadTagSet(mappedTags)) {
@@ -41,6 +42,7 @@ export async function ingestProblem(leetcodeProblem) {
         finalTags = ['Other'];
         tagSource = 'leetcode';
         aiStatus = 'pending';
+        lastAiTriedAt = new Date();
       }
     }
 
@@ -55,7 +57,8 @@ export async function ingestProblem(leetcodeProblem) {
         aiTags,
         finalTags,
         tagSource,
-        aiStatus
+        aiStatus,
+        lastAiTriedAt
       }
     });
 
@@ -65,11 +68,14 @@ export async function ingestProblem(leetcodeProblem) {
 
 
 
+// Pure DB read -- never calls LeetCode live. A scheduled background job (see
+// syncNewProblems below, wired into server.js) is solely responsible for keeping the
+// DB stocked, so a user's contest-creation request never blocks on a live scrape or
+// synchronous classification.
 export async function ensureProblemsAvailable(filters, requiredCount) {
   return await withPrisma(async (prisma) => {
     const { difficulty, selectedTopics } = filters;
 
-    // Build query to check current availability with topic filters
     const where = {};
     if (difficulty !== 'Mixed') {
       where.difficulty = difficulty;
@@ -81,74 +87,53 @@ export async function ensureProblemsAvailable(filters, requiredCount) {
     }
 
     const currentCount = await prisma.problem.count({ where });
-    console.log(`Current problems in DB (difficulty: ${difficulty}, topics: ${selectedTopics?.join(', ') || 'all'}): ${currentCount}, needed: ${requiredCount}`);
-    
+
     if (currentCount >= requiredCount) {
       return true;
     }
 
-    // Need to ingest more problems
-    const needed = Math.max(requiredCount - currentCount, 20); // Ingest at least 20
-    console.log(`Need to ingest ${needed} more problems`);
-    
-    const leetcodePool = await fetchLeetCodePool();
-    console.log(`LeetCode pool size: ${leetcodePool.length}`);
-    
-    // Filter by difficulty
-    let filteredPool = difficulty !== 'Mixed' 
-      ? leetcodePool.filter(p => p.difficulty === difficulty)
-      : leetcodePool;
-    
-    console.log(`Filtered pool size for ${difficulty}: ${filteredPool.length}`);
+    // The background sync job keeps the whole catalog synced on its own schedule, so
+    // reaching here means this exact filter combination genuinely doesn't have enough
+    // problems yet -- not that nobody has looked. A live scrape wouldn't find anything
+    // the sync job hasn't already seen.
+    throw new Error(
+      `Not enough problems available for difficulty="${difficulty}", topics="${selectedTopics?.join(', ') || 'any'}" (have ${currentCount}, need ${requiredCount})`
+    );
+  });
+}
 
-    if (filteredPool.length === 0) {
-      throw new Error(`No problems available for difficulty: ${difficulty}`);
+// Background catalog sync: diffs LeetCode's current pool against what's already in the
+// DB and ingests only what's new. Run once at server startup (so a fresh/empty DB
+// self-populates without a manual seed script) and on a recurring interval afterward to
+// pick up newly-added LeetCode problems. See server.js.
+export async function syncNewProblems() {
+  return await withPrisma(async (prisma) => {
+    const pool = await fetchLeetCodePool();
+
+    const existingRows = await prisma.problem.findMany({ select: { leetcodeId: true } });
+    const existingIds = new Set(existingRows.map((r) => r.leetcodeId));
+
+    const newProblems = pool.filter((p) => !existingIds.has(p.slug));
+
+    if (newProblems.length === 0) {
+      console.log('Problem sync: catalog already up to date, no new problems found.');
+      return { newCount: 0, failedCount: 0 };
     }
 
-    // Prioritize problems that will match selected topics once ingested. This is no
-    // longer a guess: p.topicTags are LeetCode's real tags (from fetchLeetCodePool),
-    // so mapLeetCodeTagsToBuckets computes the same primary-tier result ingestProblem
-    // will store. The small residual that needs the LLM tier to resolve (mapped to
-    // "Other" here) just gets deprioritized rather than guessed at.
-    if (selectedTopics && selectedTopics.length > 0) {
-      const withPriority = filteredPool.map(p => {
-        const predictedTags = mapLeetCodeTagsToBuckets(p.topicTags);
-        const matchesTopics = selectedTopics.some(topic => predictedTags.includes(topic));
-        return { problem: p, priority: matchesTopics ? 1 : 0 };
-      });
-      
-      // Sort by priority (matching topics first), then shuffle within each group
-      withPriority.sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
-        return Math.random() - 0.5;
-      });
-      
-      filteredPool = withPriority.map(wp => wp.problem);
-    } else {
-      // No topic filter, just shuffle
-      filteredPool = filteredPool.sort(() => Math.random() - 0.5);
-    }
+    console.log(`Problem sync: found ${newProblems.length} new problem(s), ingesting...`);
 
-    // Take problems to ingest
-    const toIngest = filteredPool.slice(0, Math.min(needed, filteredPool.length));
-    
-    console.log(`Attempting to ingest ${toIngest.length} problems`);
-
-    // Ingest problems
-    let successCount = 0;
-    for (const problem of toIngest) {
+    let failedCount = 0;
+    for (const problem of newProblems) {
       try {
         await ingestProblem(problem);
-        successCount++;
-        if (successCount % 5 === 0) {
-          console.log(`Ingested ${successCount}/${toIngest.length} problems...`);
-        }
       } catch (error) {
-        console.error('Failed to ingest problem:', problem.title, error.message);
+        failedCount++;
+        console.error(`Problem sync: failed to ingest "${problem.title}":`, error.message);
       }
     }
-    
-    console.log(`Successfully ingested ${successCount} problems`);
-    return true;
+
+    const newCount = newProblems.length - failedCount;
+    console.log(`Problem sync complete: ${newCount} ingested, ${failedCount} failed.`);
+    return { newCount, failedCount };
   });
 }

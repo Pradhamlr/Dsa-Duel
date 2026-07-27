@@ -78,6 +78,22 @@ app.listen(PORT, () => {
                 );
             }, 6 * 60 * 60 * 1000);
         });
+
+        // Keep the problem catalog in sync with LeetCode. Runs once immediately (so a
+        // fresh/empty DB self-populates with no manual seed script needed) and then
+        // every 6 hours to pick up newly-added LeetCode problems. This is the only
+        // thing that talks to LeetCode live -- ensureProblemsAvailable (in the
+        // contest-creation request path) is a pure DB read and never blocks on it.
+        import('./utils/problemIngestion.js').then(({ syncNewProblems }) => {
+            syncNewProblems().catch(err =>
+                console.error("Initial problem sync failed:", err.message)
+            );
+            setInterval(() => {
+                syncNewProblems().catch(err =>
+                    console.error("Problem sync failed:", err.message)
+                );
+            }, 6 * 60 * 60 * 1000);
+        });
     } else {
         console.log('DATABASE_URL not found - AI retry job disabled');
     }
