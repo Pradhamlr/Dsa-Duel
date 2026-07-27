@@ -5,9 +5,9 @@ import CodeEditor from '../components/CodeEditor'
 import { authFetch, API, clearAuthSession, getStoredUserId, updateProfile, verifyLeetCodeSubmission } from '../utils/api'
 
 const DIFFICULTY_STYLES = {
-  Easy: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Medium: 'bg-amber-50 text-amber-700 border-amber-200',
-  Hard: 'bg-rose-50 text-rose-700 border-rose-200'
+  Easy: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  Medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  Hard: 'bg-rose-500/10 text-rose-400 border-rose-500/20'
 }
 
 const CheckSVG = ({ size = 14 }) => (
@@ -28,33 +28,33 @@ const ArrowUpRightSVG = ({ size = 14 }) => (
 // reliably beats it (same reason Home.jsx/Auth.jsx use inline styles for their buttons
 // instead of bg-black/bg-white classes) -- so every custom button color here is inline.
 const primaryBtnStyle = (disabled) => ({
-  backgroundColor: disabled ? '#666666' : '#000000',
+  background: disabled ? '#475569' : 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
   color: '#ffffff',
   fontWeight: 600,
   border: 'none',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
   cursor: disabled ? 'not-allowed' : 'pointer',
   opacity: disabled ? 0.7 : 1
 })
 
 const neutralBtnStyle = {
-  backgroundColor: '#f8fafc',
-  color: '#374151',
-  border: '1px solid #d1d5db',
+  backgroundColor: '#1e293b',
+  color: '#cbd5e1',
+  border: '1px solid #334155',
   fontWeight: 500,
   cursor: 'pointer',
   transition: 'all 0.15s ease'
 }
 
 const neutralHoverProps = {
-  onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.borderColor = '#9ca3af' },
-  onMouseLeave: (e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#d1d5db' }
+  onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = '#293548'; e.currentTarget.style.borderColor = '#475569' },
+  onMouseLeave: (e) => { e.currentTarget.style.backgroundColor = '#1e293b'; e.currentTarget.style.borderColor = '#334155' }
 }
 
 const successBtnStyle = {
-  backgroundColor: '#ecfdf5',
-  color: '#047857',
-  border: '1px solid #a7f3d0',
+  backgroundColor: 'rgba(16,185,129,0.12)',
+  color: '#34d399',
+  border: '1px solid rgba(16,185,129,0.35)',
   fontWeight: 600,
   cursor: 'pointer'
 }
@@ -249,10 +249,10 @@ export default function Contest(){
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50/30 via-white to-indigo-50/20">
-        <div className="bg-white rounded-2xl p-10 shadow-sm border border-black/6 flex flex-col items-center gap-4">
-          <div className="animate-spin h-10 w-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full"></div>
-          <div className="text-gray-600 font-medium">Loading contest...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-indigo-950/20 to-purple-950/10">
+        <div className="bg-gray-900 rounded-2xl p-10 shadow-sm border border-white/10 flex flex-col items-center gap-4">
+          <div className="animate-spin h-10 w-10 border-4 border-indigo-900 border-t-indigo-500 rounded-full"></div>
+          <div className="text-gray-400 font-medium">Loading contest...</div>
         </div>
       </div>
     )
@@ -260,9 +260,9 @@ export default function Contest(){
 
   if (!contest) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50/30 via-white to-indigo-50/20 p-6">
-        <div className="bg-white rounded-2xl p-10 shadow-sm border border-black/6 text-center max-w-sm">
-          <div className="text-xl font-semibold text-gray-900 mb-2">Contest not found</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-indigo-950/20 to-purple-950/10 p-6">
+        <div className="bg-gray-900 rounded-2xl p-10 shadow-sm border border-white/10 text-center max-w-sm">
+          <div className="text-xl font-semibold text-gray-100 mb-2">Contest not found</div>
           <div className="text-gray-500 mb-6 text-sm">The contest you're looking for doesn't exist or has been removed.</div>
           <button
             onClick={()=>navigate('/')}
@@ -308,8 +308,8 @@ export default function Contest(){
 
     if (rows.length === 0) {
       return (
-        <div className="bg-white rounded-2xl p-12 shadow-sm border border-black/6 text-center">
-          <div className="text-lg font-semibold text-gray-900 mb-2">No results yet</div>
+        <div className="bg-gray-900 rounded-2xl p-12 shadow-sm border border-white/10 text-center">
+          <div className="text-lg font-semibold text-gray-100 mb-2">No results yet</div>
           <div className="text-sm text-gray-500">Results will appear here once participants start solving problems</div>
         </div>
       )
@@ -318,11 +318,11 @@ export default function Contest(){
     return (
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Final Results</h2>
+          <h2 className="text-xl font-semibold text-gray-100">Final Results</h2>
           <select
             value={selectedSort}
             onChange={e=>setSelectedSort(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+            className="text-sm border border-gray-700 rounded-lg px-3 py-1.5 bg-gray-800 text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
           >
             <option value="solved-desc">Most Solved</option>
             <option value="solved-asc">Least Solved</option>
@@ -330,14 +330,14 @@ export default function Contest(){
           </select>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-black/6 overflow-hidden">
-          <div style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}} className="gap-4 px-5 py-3 font-semibold text-xs uppercase tracking-wide text-gray-400 border-b border-black/6">
+        <div className="bg-gray-900 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+          <div style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}} className="gap-4 px-5 py-3 font-semibold text-xs uppercase tracking-wide text-gray-600 border-b border-white/10">
             <div>Rank</div>
             <div>Participant</div>
             <div className="text-right">Solved</div>
           </div>
 
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-white/5">
             {rows.map((r, idx) => {
               const isCurrentUser = r.userId === userId
 
@@ -345,21 +345,21 @@ export default function Contest(){
                 <div
                   key={r.userId}
                   style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}}
-                  className={`gap-4 px-5 py-4 items-center ${isCurrentUser ? 'bg-indigo-50/50' : ''}`}
+                  className={`gap-4 px-5 py-4 items-center ${isCurrentUser ? 'bg-indigo-500/10' : ''}`}
                 >
-                  <div className="font-semibold text-gray-700">
+                  <div className="font-semibold text-gray-300">
                     #{idx+1}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium text-gray-900 flex items-center gap-2 truncate">
+                    <div className="font-medium text-gray-100 flex items-center gap-2 truncate">
                       {r.name || r.userId}
                       {isCurrentUser && (
-                        <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full flex-shrink-0">You</span>
+                        <span className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full flex-shrink-0">You</span>
                       )}
                     </div>
-                    {r.name && <div className="text-xs text-gray-400 truncate">{r.userId}</div>}
+                    {r.name && <div className="text-xs text-gray-600 truncate">{r.userId}</div>}
                   </div>
-                  <div className="text-right font-semibold text-gray-900">
+                  <div className="text-right font-semibold text-gray-100">
                     {r.solvedCount} / {contest.problems?.length || 0}
                   </div>
                 </div>
@@ -372,21 +372,21 @@ export default function Contest(){
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-white to-indigo-50/20 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950/20 to-purple-950/10 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-100/20 to-purple-100/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-100/20 to-indigo-100/20 rounded-full blur-3xl"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-3xl"></div>
       </div>
 
       {/* Navbar */}
-      <div className="relative z-20 flex justify-between items-center px-6 sm:px-8 py-6 bg-white/80 backdrop-blur-xl border-b border-black/6">
+      <div className="relative z-20 flex justify-between items-center px-6 sm:px-8 py-6 bg-gray-900/80 backdrop-blur-xl border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">D</span>
           </div>
-          <span className="text-gray-900 font-semibold text-xl tracking-tight">DSA DUEL</span>
-          <span className="text-gray-300 hidden sm:inline">/</span>
+          <span className="text-gray-100 font-semibold text-xl tracking-tight">DSA DUEL</span>
+          <span className="text-gray-600 hidden sm:inline">/</span>
           <span className="text-gray-500 font-medium hidden sm:inline">Contest {id}</span>
         </div>
         <div className="flex items-center gap-3">
@@ -412,22 +412,22 @@ export default function Contest(){
       <div className="relative z-10 p-4 sm:p-8 flex justify-center animate-fadeIn">
         <div className="w-full max-w-4xl">
           {/* Header Card */}
-          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-black/6 mb-6 animate-slideIn">
+          <div className="bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-white/10 mb-6 animate-slideIn">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text tracking-tight mb-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text tracking-tight mb-1">
                   Contest {id}
                 </h1>
                 {contest.creatorName || contest.creatorId ? (
                   <div className="text-sm text-gray-500">
-                    Created by <span className="font-medium text-gray-700">{contest.creatorName || contest.creatorId}</span>
+                    Created by <span className="font-medium text-gray-300">{contest.creatorName || contest.creatorId}</span>
                   </div>
                 ) : null}
               </div>
 
               {contest.startTime ? (
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                  <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2">
                     <span className="text-xs font-medium text-gray-500">Time left</span>
                     <Timer startTime={contest.startTime} duration={contest.duration} onEnd={async ()=>{
                       setEnded(true)
@@ -451,10 +451,10 @@ export default function Contest(){
                     max={480}
                     value={durationOverrideMin}
                     onChange={e=>setDurationOverrideMin(e.target.value)}
-                    className="w-24 px-3 py-2 border border-gray-200 rounded-xl bg-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                    className="w-24 px-3 py-2 border border-gray-700 rounded-xl bg-gray-800/50 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
                   />
                   {contest.creatorId && contest.creatorId !== userId ? (
-                    <div className="text-sm text-gray-400 italic">
+                    <div className="text-sm text-gray-500 italic">
                       Only creator can start
                     </div>
                   ) : (
@@ -477,17 +477,17 @@ export default function Contest(){
           </div>
 
           {/* User Info Card */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/6 mb-6 animate-slideIn" style={{animationDelay: '0.1s'}}>
+          <div className="bg-gray-900 rounded-2xl p-6 shadow-sm border border-white/10 mb-6 animate-slideIn" style={{animationDelay: '0.1s'}}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-5">
               <div className="flex-1 w-full">
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
                   Your Display Name
                 </label>
                 <input
                   value={displayName}
                   onChange={e=>setDisplayName(e.target.value)}
                   placeholder="Enter your display name"
-                  className="w-full sm:w-72 px-4 py-2.5 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
+                  className="w-full sm:w-72 px-4 py-2.5 border border-gray-700 rounded-xl bg-gray-800/50 text-gray-100 backdrop-blur-sm text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-gray-600"
                 />
               </div>
               <button
@@ -501,16 +501,16 @@ export default function Contest(){
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex-1 w-full">
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
                   Your LeetCode Username
                 </label>
                 <input
                   value={leetcodeUsername}
                   onChange={e=>setLeetcodeUsername(e.target.value)}
                   placeholder="e.g. john_doe123"
-                  className="w-full sm:w-72 px-4 py-2.5 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
+                  className="w-full sm:w-72 px-4 py-2.5 border border-gray-700 rounded-xl bg-gray-800/50 text-gray-100 backdrop-blur-sm text-sm transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-gray-600"
                 />
-                <div className="text-xs text-gray-400 mt-1.5">
+                <div className="text-xs text-gray-600 mt-1.5">
                   Needed to verify solves against your real LeetCode submissions. Your submission history must be public.
                 </div>
               </div>
@@ -542,7 +542,7 @@ export default function Contest(){
           ) : (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-xl font-semibold text-gray-100">
                   Problems
                 </h2>
               </div>
@@ -556,7 +556,7 @@ export default function Contest(){
                   return (
                     <div
                       key={i}
-                      className={`bg-white rounded-2xl p-6 shadow-sm border transition-all duration-300 animate-slideIn ${solved ? 'border-emerald-200' : 'border-black/6 hover:shadow-md hover:border-gray-200'}`}
+                      className={`bg-gray-900 rounded-2xl p-6 shadow-sm border transition-all duration-300 animate-slideIn ${solved ? 'border-emerald-500/30' : 'border-white/10 hover:shadow-md hover:border-white/20'}`}
                       style={{animationDelay: `${0.05 * (i + 1)}s`}}
                     >
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4">
@@ -566,13 +566,13 @@ export default function Contest(){
                               {i+1}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-lg text-gray-900 mb-2 truncate">{p.title}</h3>
+                              <h3 className="font-semibold text-lg text-gray-100 mb-2 truncate">{p.title}</h3>
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${difficultyStyle}`}>
                                   {difficultyLabel}
                                 </span>
                                 {problemTags[i].map((tag) => (
-                                  <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                                  <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-800 text-gray-400">
                                     {tag}
                                   </span>
                                 ))}
@@ -584,7 +584,7 @@ export default function Contest(){
                             href={`https://leetcode.com/problems/${p.slug}/`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
                           >
                             Open on LeetCode <ArrowUpRightSVG />
                           </a>
@@ -593,23 +593,21 @@ export default function Contest(){
                         <div className="flex items-center gap-3 flex-shrink-0">
                           {contest.startTime && !ended ? (
                             <>
-                              {p.judgeSupported && (
-                                <button
-                                  onClick={()=>setEditorProblemIndex(i)}
-                                  className="px-4 py-2 rounded-xl text-sm"
-                                  style={neutralBtnStyle}
-                                  {...neutralHoverProps}
-                                >
-                                  Solve in Editor
-                                </button>
-                              )}
+                              <button
+                                onClick={()=>setEditorProblemIndex(i)}
+                                className="px-4 py-2 rounded-xl text-sm"
+                                style={neutralBtnStyle}
+                                {...neutralHoverProps}
+                              >
+                                View Problem
+                              </button>
                               {solved ? (
                                 <button
                                   onClick={()=>mark(i, false)}
                                   className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl"
                                   style={successBtnStyle}
-                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#d1fae5' }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.18)' }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.12)' }}
                                 >
                                   <CheckSVG /> Verified
                                 </button>
@@ -626,7 +624,7 @@ export default function Contest(){
                               )}
                             </>
                           ) : (
-                            <div className="text-sm text-gray-400 italic">
+                            <div className="text-sm text-gray-500 italic">
                               Contest not started
                             </div>
                           )}

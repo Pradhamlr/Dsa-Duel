@@ -1,32 +1,14 @@
 @import "tailwindcss";
 
-/* Enhanced theme variables with modern color palette */
-:root {
-   --page-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-   --card-bg: #ffffff;
-   --text: #0f172a;
-   --muted: #64748b;
-   --border: rgba(15,23,42,0.08);
-   --neutral-bg: rgba(15,23,42,0.04);
-   --neutral-hover: rgba(15,23,42,0.08);
-   --accent: #3b82f6;
-   --accent-hover: #2563eb;
-   --primary: #10b981;
-   --primary-hover: #059669;
-   --secondary-start: #ffffff;
-   --secondary-end: #f8fafc;
-   --shadow-1: rgba(15,23,42,0.1);
-   --shadow-2: rgba(15,23,42,0.15);
-   --danger: #ef4444;
-   --warning: #f59e0b;
-   --success: #10b981;
-   --info: #3b82f6;
-   --toast-info: #111827;
-   --glass-bg: rgba(255,255,255,0.8);
-   --glass-border: rgba(255,255,255,0.2);
-}
+/* Dark is this app's one and only theme (no light/toggle variant) -- see CLAUDE.md's
+   "Known gaps" entry on the dark-theme pass for why. Forces Tailwind's `dark:` variant
+   (already used by a few older components like Leaderboard.jsx/Timer.jsx) to always be
+   active regardless of OS preference, since there's no toggle to flip a class on. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-.dark {
+/* Theme variables -- dark values are now the only values (the old light `:root` set
+   was retired here, not left as a dead toggle target). */
+:root {
    --page-bg: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
    --card-bg: rgba(30,41,59,0.8);
    --text: #f1f5f9;

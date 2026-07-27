@@ -116,41 +116,40 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
 
   return (
     <div className="min-h-screen" style={{
-      background: 'linear-gradient(135deg, rgba(99,102,241,0.22) 0%, rgba(56,189,248,0.16) 50%, rgba(34,197,94,0.12) 100%)'
+      background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 55%, #0f172a 100%)'
     }}>
       {/* Header */}
-      <div className="flex justify-between items-center px-8 py-6 bg-white/80 backdrop-blur-xl border-b border-gray-100/50 shadow-sm">
+      <div className="flex justify-between items-center px-8 py-6 bg-gray-900/80 backdrop-blur-xl border-b border-white/10 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">D</span>
           </div>
-          <span className="text-gray-900 font-semibold text-xl tracking-tight">DSA DUEL</span>
+          <span className="text-gray-100 font-semibold text-xl tracking-tight">DSA DUEL</span>
         </div>
-        
+
         <div className="flex items-center space-x-2 text-sm text-gray-500 font-medium mr-8">
-          <button type="button" aria-label="Home" onClick={onBack} className="p-1 rounded hover:bg-white hover:bg-opacity-20 transition-colors">
+          <button type="button" aria-label="Home" onClick={onBack} className="p-1 rounded hover:bg-white hover:bg-opacity-10 transition-colors">
             <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16 7.609c.352 0 .69.122.96.343l.111.1 6.25 6.25v.001a1.5 1.5 0 0 1 .445 1.071v7.5a.89.89 0 0 1-.891.891H9.125a.89.89 0 0 1-.89-.89v-7.5l.006-.149a1.5 1.5 0 0 1 .337-.813l.1-.11 6.25-6.25c.285-.285.67-.444 1.072-.444Zm5.984 7.876L16 9.5l-5.984 5.985v6.499h11.968z" fill="#475569" stroke="#475569" strokeWidth=".094"/>
+              <path d="M16 7.609c.352 0 .69.122.96.343l.111.1 6.25 6.25v.001a1.5 1.5 0 0 1 .445 1.071v7.5a.89.89 0 0 1-.891.891H9.125a.89.89 0 0 1-.89-.89v-7.5l.006-.149a1.5 1.5 0 0 1 .337-.813l.1-.11 6.25-6.25c.285-.285.67-.444 1.072-.444Zm5.984 7.876L16 9.5l-5.984 5.985v6.499h11.968z" fill="#94a3b8" stroke="#94a3b8" strokeWidth=".094"/>
             </svg>
           </button>
           <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="m14.413 10.663-6.25 6.25a.939.939 0 1 1-1.328-1.328L12.42 10 6.836 4.413a.939.939 0 1 1 1.328-1.328l6.25 6.25a.94.94 0 0 1-.001 1.328" fill="#000000"/>
+            <path d="m14.413 10.663-6.25 6.25a.939.939 0 1 1-1.328-1.328L12.42 10 6.836 4.413a.939.939 0 1 1 1.328-1.328l6.25 6.25a.94.94 0 0 1-.001 1.328" fill="#475569"/>
           </svg>
-          <span className="text-indigo-500 font-semibold">Reset Password</span>
+          <span className="text-indigo-400 font-semibold">Reset Password</span>
         </div>
-        
-        <button 
+
+        <button
           onClick={onLoginRedirect}
           style={{
-            backgroundColor: '#ffffff',
-            color: '#111827',
-            padding: '6px 10px',
-            border: '2px solid #000000',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
+            color: '#ffffff',
+            padding: '6px 12px',
+            border: 'none',
             borderRadius: 8,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
             fontSize: '0.875rem',
-            outline: '2px solid rgba(0,0,0,0.95)',
-            outlineOffset: 2,
+            fontWeight: '500',
             zIndex: 60,
             cursor: 'pointer'
           }}
@@ -161,8 +160,8 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
 
       {/* Main Content */}
       <div className="flex items-center justify-center px-8 pt-12" style={{ minHeight: 'calc(100vh - 160px)' }}>
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl ring-1 ring-gray-200/50 p-10 w-full max-w-md">
-          
+        <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-xl ring-1 ring-white/10 p-10 w-full max-w-md">
+
           {/* Step Indicator */}
           <div className="flex justify-center mb-8">
             <div className="flex items-center w-64">
@@ -170,11 +169,11 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                 <React.Fragment key={stepNum}>
                   <div className="flex flex-col items-center">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                      step >= stepNum 
-                        ? 'bg-indigo-600 text-white shadow-lg' 
-                        : step === stepNum - 1 
-                        ? 'bg-indigo-100 text-indigo-600 border-2 border-indigo-600' 
-                        : 'bg-gray-100 text-gray-400'
+                      step >= stepNum
+                        ? 'bg-indigo-600 text-white shadow-lg'
+                        : step === stepNum - 1
+                        ? 'bg-indigo-500/10 text-indigo-400 border-2 border-indigo-500'
+                        : 'bg-gray-800 text-gray-500'
                     }`}>
                       {step > stepNum ? (
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -183,14 +182,14 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                       ) : stepNum}
                     </div>
                     <span className={`text-xs mt-2 font-medium ${
-                      step >= stepNum ? 'text-indigo-600' : 'text-gray-400'
+                      step >= stepNum ? 'text-indigo-400' : 'text-gray-500'
                     }`}>
                       {stepNum === 1 ? 'Email' : stepNum === 2 ? 'Verify' : 'Reset'}
                     </span>
                   </div>
                   {index < 2 && (
                     <div className="flex-1 h-0.5 mx-4 transition-all duration-300" style={{
-                      backgroundColor: step > stepNum ? '#4f46e5' : '#e5e7eb'
+                      backgroundColor: step > stepNum ? '#4f46e5' : '#334155'
                     }} />
                   )}
                 </React.Fragment>
@@ -199,12 +198,12 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">
+            <h1 className="text-3xl font-bold text-gray-100 mb-3 tracking-tight">
               {step === 1 && 'Reset Password'}
               {step === 2 && 'Verify OTP'}
               {step === 3 && 'New Password'}
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-400">
               {step === 1 && 'Enter your email to receive an OTP'}
               {step === 2 && 'Enter the 6-digit code sent to your email'}
               {step === 3 && 'Create your new password'}
@@ -212,23 +211,23 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg">
+            <div className="mb-6 p-4 bg-red-500/10 border-l-4 border-red-500 rounded-r-lg">
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-red-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <p className="text-sm font-medium text-red-800">{error}</p>
+                <p className="text-sm font-medium text-red-300">{error}</p>
               </div>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-400 rounded-r-lg">
+            <div className="mb-6 p-4 bg-green-500/10 border-l-4 border-green-500 rounded-r-lg">
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <p className="text-sm font-medium text-green-800">{success}</p>
+                <p className="text-sm font-medium text-green-300">{success}</p>
               </div>
             </div>
           )}
@@ -237,14 +236,14 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           {step === 1 && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
                   EMAIL ADDRESS
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
+                  className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-800/50 text-gray-100 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-gray-600"
                   placeholder="johndoe@example.com"
                   required
                 />
@@ -254,13 +253,13 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                 disabled={loading}
                 style={{
                   width: '100%',
-                  backgroundColor: loading ? '#666666' : '#000000',
+                  background: loading ? '#475569' : 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
                   color: '#ffffff',
                   padding: '8px 48px',
                   borderRadius: '10px',
                   fontWeight: '600',
                   border: 'none',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   marginTop: '24px',
                   opacity: loading ? '0.8' : '1'
@@ -287,14 +286,14 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           {step === 2 && (
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
                   ENTER OTP
                 </label>
                 <input
                   type="text"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300 text-center text-lg tracking-widest"
+                  className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-800/50 text-gray-100 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-gray-600 text-center text-lg tracking-widest"
                   placeholder="123456"
                   maxLength="6"
                   required
@@ -305,13 +304,13 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                 disabled={loading}
                 style={{
                   width: '100%',
-                  backgroundColor: loading ? '#666666' : '#000000',
+                  background: loading ? '#475569' : 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
                   color: '#ffffff',
                   padding: '8px 48px',
                   borderRadius: '10px',
                   fontWeight: '600',
                   border: 'none',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   marginTop: '24px',
                   opacity: loading ? '0.8' : '1'
@@ -338,7 +337,7 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           {step === 3 && (
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
                   NEW PASSWORD
                 </label>
                 <input
@@ -349,7 +348,7 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                     setNewPassword(password)
                     setPasswordStrength(validatePasswordStrength(password))
                   }}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white/50 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 hover:border-gray-300"
+                  className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-800/50 text-gray-100 backdrop-blur-sm transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 hover:border-gray-600"
                   placeholder="••••••••••"
                   minLength="8"
                   required
@@ -358,25 +357,25 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
               {newPassword && (
                 <div className="mt-2">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                      <div 
+                    <div className="flex-1 bg-gray-700 rounded-full h-1.5">
+                      <div
                         className={`h-1.5 rounded-full transition-all duration-300 ${
-                          passwordStrength.score <= 2 ? 'bg-red-500' : 
+                          passwordStrength.score <= 2 ? 'bg-red-500' :
                           passwordStrength.score <= 4 ? 'bg-yellow-500' : 'bg-green-500'
                         }`}
                         style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
                       />
                     </div>
                     <span className={`text-xs font-medium ${
-                      passwordStrength.score <= 2 ? 'text-red-600' : 
-                      passwordStrength.score <= 4 ? 'text-yellow-600' : 'text-green-600'
+                      passwordStrength.score <= 2 ? 'text-red-400' :
+                      passwordStrength.score <= 4 ? 'text-yellow-400' : 'text-green-400'
                     }`}>
-                      {passwordStrength.score <= 2 ? 'Weak' : 
+                      {passwordStrength.score <= 2 ? 'Weak' :
                        passwordStrength.score <= 4 ? 'Good' : 'Strong'}
                     </span>
                   </div>
                   {passwordStrength.feedback.length > 0 && (
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-gray-500">
                       <span>Required: </span>
                       {passwordStrength.feedback.join(', ')}
                     </div>
@@ -388,13 +387,13 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                 disabled={loading}
                 style={{
                   width: '100%',
-                  backgroundColor: loading ? '#666666' : '#000000',
+                  background: loading ? '#475569' : 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
                   color: '#ffffff',
                   padding: '8px 48px',
                   borderRadius: '10px',
                   fontWeight: '600',
                   border: 'none',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   marginTop: '24px',
                   opacity: loading ? '0.8' : '1'

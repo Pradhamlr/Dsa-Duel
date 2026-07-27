@@ -276,6 +276,46 @@ export const markProblem = async (req, res) => {
   }
 };
 
+// Full problem details for the LeetCode-style contest view: description HTML and
+// example test cases, on top of what's already in the contest.problems snapshot.
+// Not auth-gated, matching getContest/getContestStatus -- this is public LeetCode
+// data (problem statement + its own worked examples), same trust level as the title
+// and URL the client already has.
+export const getProblemDetails = async (req, res) => {
+  try {
+    const result = await withPrisma(async (prisma) => {
+      const id = req.params.id
+      const index = Number(req.params.index)
+
+      const contest = await prisma.contest.findUnique({ where: { id } })
+      if (!contest) return { error: 'not found', status: 404 }
+
+      const snapshot = contest.problems[index]
+      if (!snapshot) return { error: 'invalid problem index', status: 400 }
+
+      const problem = await prisma.problem.findUnique({ where: { leetcodeId: snapshot.slug } })
+      if (!problem) return { error: 'problem not found', status: 404 }
+
+      return {
+        title: problem.title,
+        difficulty: problem.difficulty,
+        slug: problem.leetcodeId,
+        url: problem.leetcodeUrl,
+        finalTags: problem.finalTags,
+        description: problem.description || null,
+        judgeSupported: problem.judgeSupported,
+        testCases: problem.judgeSupported ? problem.testCases : null
+      }
+    })
+
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    res.json(result)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'failed to load problem details' })
+  }
+};
+
 // Verifies a solve against the user's real LeetCode submission history instead of
 // trusting a self-reported click. Needs User.leetcodeUsername set, and the check is
 // scoped to submissions timestamped after the contest started (so a problem solved

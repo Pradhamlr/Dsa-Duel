@@ -69,17 +69,17 @@ export default function Sessions({ onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+        className="bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col border border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Active sessions</h2>
+            <h2 className="text-lg font-semibold text-gray-100">Active sessions</h2>
             <p className="text-sm text-gray-500">Devices currently signed in to your account</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="text-gray-500 hover:text-gray-300 p-1"
             aria-label="Close"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -94,7 +94,7 @@ export default function Sessions({ onClose }) {
           )}
 
           {!loading && error && (
-            <div className="py-8 text-center text-sm text-red-500">{error}</div>
+            <div className="py-8 text-center text-sm text-red-400">{error}</div>
           )}
 
           {!loading && !error && sessions.length === 0 && (
@@ -104,13 +104,13 @@ export default function Sessions({ onClose }) {
           {!loading && !error && sessions.map((session) => (
             <div
               key={session.id}
-              className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0"
+              className="flex items-center justify-between py-3 border-b border-white/5 last:border-0"
             >
               <div>
-                <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                <div className="text-sm font-medium text-gray-100 flex items-center gap-2">
                   {session.deviceLabel || 'Unknown device'}
                   {session.isCurrent && (
-                    <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                       This device
                     </span>
                   )}
@@ -124,7 +124,7 @@ export default function Sessions({ onClose }) {
                 <button
                   onClick={() => handleRevoke(session.id)}
                   disabled={busyId === session.id}
-                  className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                  className="text-xs font-semibold text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
                 >
                   {busyId === session.id ? 'Signing out...' : 'Sign out'}
                 </button>
@@ -134,11 +134,12 @@ export default function Sessions({ onClose }) {
         </div>
 
         {!loading && !error && otherCount > 0 && (
-          <div className="px-6 py-4 border-t border-gray-100">
+          <div className="px-6 py-4 border-t border-white/10">
             <button
               onClick={handleRevokeOthers}
               disabled={busyId === 'all'}
-              className="w-full text-sm font-semibold text-white bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl py-2.5 transition-colors"
+              className="w-full text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl py-2.5 transition-colors"
+              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)' }}
             >
               {busyId === 'all' ? 'Signing out...' : `Sign out ${otherCount} other device${otherCount > 1 ? 's' : ''}`}
             </button>

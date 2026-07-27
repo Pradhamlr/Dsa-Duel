@@ -151,6 +151,17 @@ export const updateProfile = async ({ name, leetcodeUsername }) => {
   return res.json()
 }
 
+// Full problem details (description + example test cases) for the LeetCode-style view.
+// Not auth-gated on the backend, but authFetch works fine unauthenticated too.
+export const getProblemDetails = async (contestId, problemIndex) => {
+  const res = await authFetch(`/contest/${contestId}/problem/${problemIndex}`)
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to load problem details')
+  }
+  return data
+}
+
 // Verify a contest problem as solved via the user's real LeetCode submission history
 export const verifyLeetCodeSubmission = async (contestId, problemIndex) => {
   const res = await authFetch(`/contest/${contestId}/verify-leetcode`, {
