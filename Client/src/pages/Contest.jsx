@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Timer from '../components/Timer'
+import CodeEditor from '../components/CodeEditor'
 import { authFetch, API, clearAuthSession, getStoredUserId, updateProfile, verifyLeetCodeSubmission } from '../utils/api'
 
 const DIFFICULTY_STYLES = {
@@ -71,6 +72,7 @@ export default function Contest(){
   })
   const [leetcodeUsername, setLeetcodeUsername] = useState('')
   const [verifyingIndex, setVerifyingIndex] = useState(null)
+  const [editorProblemIndex, setEditorProblemIndex] = useState(null)
   const navigate = useNavigate()
 
   // Verify user exists on mount
@@ -590,27 +592,39 @@ export default function Contest(){
 
                         <div className="flex items-center gap-3 flex-shrink-0">
                           {contest.startTime && !ended ? (
-                            solved ? (
-                              <button
-                                onClick={()=>mark(i, false)}
-                                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl"
-                                style={successBtnStyle}
-                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#d1fae5' }}
-                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5' }}
-                              >
-                                <CheckSVG /> Verified
-                              </button>
-                            ) : (
-                              <button
-                                onClick={()=>verifyOnLeetcode(i)}
-                                disabled={verifyingIndex === i}
-                                className="px-4 py-2 rounded-xl text-sm"
-                                style={primaryBtnStyle(verifyingIndex === i)}
-                                title="Checks your real LeetCode submission history for this problem"
-                              >
-                                {verifyingIndex === i ? 'Checking...' : 'Verify via LeetCode'}
-                              </button>
-                            )
+                            <>
+                              {p.judgeSupported && (
+                                <button
+                                  onClick={()=>setEditorProblemIndex(i)}
+                                  className="px-4 py-2 rounded-xl text-sm"
+                                  style={neutralBtnStyle}
+                                  {...neutralHoverProps}
+                                >
+                                  Solve in Editor
+                                </button>
+                              )}
+                              {solved ? (
+                                <button
+                                  onClick={()=>mark(i, false)}
+                                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl"
+                                  style={successBtnStyle}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#d1fae5' }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5' }}
+                                >
+                                  <CheckSVG /> Verified
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={()=>verifyOnLeetcode(i)}
+                                  disabled={verifyingIndex === i}
+                                  className="px-4 py-2 rounded-xl text-sm"
+                                  style={primaryBtnStyle(verifyingIndex === i)}
+                                  title="Checks your real LeetCode submission history for this problem"
+                                >
+                                  {verifyingIndex === i ? 'Checking...' : 'Verify via LeetCode'}
+                                </button>
+                              )}
+                            </>
                           ) : (
                             <div className="text-sm text-gray-400 italic">
                               Contest not started
@@ -626,6 +640,13 @@ export default function Contest(){
           )}
         </div>
       </div>
+
+      {editorProblemIndex !== null && (
+        <CodeEditor
+          problem={contest.problems[editorProblemIndex]}
+          onClose={() => setEditorProblemIndex(null)}
+        />
+      )}
     </div>
   )
 }

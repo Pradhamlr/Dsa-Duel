@@ -95,13 +95,17 @@ export const createContest = async (req, res) => {
       const selected = shuffled.slice(0, problemCount);
       console.log('Selected problems:', selected.map(p => p.title));
 
-      // Convert to contest format
+      // Convert to contest format. testCases is deliberately excluded here -- it's the
+      // judge's answer key, and this snapshot is shipped straight to the client, so it
+      // must stay server-side only (fetched fresh at submit-time in Phase 4).
       const chosen = selected.map(p => ({
         title: p.title,
         slug: p.leetcodeId,
         difficulty: p.difficulty,
         url: p.leetcodeUrl,
-        finalTags: p.finalTags 
+        finalTags: p.finalTags,
+        judgeSupported: p.judgeSupported,
+        ...(p.judgeSupported ? { codeSnippets: p.codeSnippets } : {})
       }));
 
       const id = randomUUID().slice(0, 8);
