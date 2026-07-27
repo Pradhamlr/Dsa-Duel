@@ -7,6 +7,8 @@ const identifierKey = (req) => {
   return typeof identifier === 'string' ? identifier.trim().toLowerCase() : null;
 };
 
+const userKey = (req) => req.user?.userId || null;
+
 // Two limiter dimensions are needed, not one:
 //   - per-IP: stops one attacker hammering many accounts from one address
 //   - per-identifier: stops a distributed/botnet attack hammering ONE account from many IPs
@@ -73,6 +75,10 @@ export const otpRateLimit = combineRateLimits(
   perIp(15 * 60 * 1000, 5),
   perIdentifier(15 * 60 * 1000, 8)
 );
+
+// Each verification hits an external API (LeetCode) -- keyed per authenticated user,
+// not IP, since this route requires auth already. Mount after authMiddleware.
+export const verifyLeetCodeRateLimit = createRateLimit(15 * 60 * 1000, 20, userKey);
 
 // Cleanup old entries every hour
 setInterval(() => {

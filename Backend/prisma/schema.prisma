@@ -23,6 +23,7 @@ model User {
   emailVerified Boolean @default(false)
   verificationToken String? @unique
   verificationTokenExpiry DateTime?
+  leetcodeUsername String?
 
   contests  Contest[] @relation("CreatorContests")
   results   Result[]
@@ -77,9 +78,15 @@ model Result {
   user        User     @relation(fields: [userId], references: [id])
   problemIndex Int
   solvedAt    DateTime?
+  verifiedVia VerificationSource @default(manual)
 
   @@unique([contestId, userId, problemIndex])
   @@index([contestId, userId])
+}
+
+enum VerificationSource {
+  manual
+  leetcode
 }
 
 enum TagSource {

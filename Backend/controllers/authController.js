@@ -221,7 +221,8 @@ export const getMe = asyncHandler(async (req, res) => {
         username: true,
         name: true,
         createdAt: true,
-        lastLogin: true
+        lastLogin: true,
+        leetcodeUsername: true
       }
     });
 

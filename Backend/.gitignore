@@ -10,7 +10,7 @@ lerna-debug.log*
 .env
 
 clear-database.js
-AUTH_ARCHITECTURE.md
+docs/
 
 node_modules
 dist

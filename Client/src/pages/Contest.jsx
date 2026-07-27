@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Timer from '../components/Timer'
-import { authFetch, API, clearAuthSession, getStoredUserId } from '../utils/api'
+import { authFetch, API, clearAuthSession, getStoredUserId, updateProfile, verifyLeetCodeSubmission } from '../utils/api'
 
 export default function Contest(){
   const { id } = useParams()
@@ -14,6 +14,8 @@ export default function Contest(){
   const [displayName, setDisplayName] = useState(() => {
     try { return localStorage.getItem('duel_name') || '' } catch { return '' }
   })
+  const [leetcodeUsername, setLeetcodeUsername] = useState('')
+  const [verifyingIndex, setVerifyingIndex] = useState(null)
   const navigate = useNavigate()
 
   // Verify user exists on mount
@@ -40,6 +42,7 @@ export default function Contest(){
           setUserId(data.user.id)
           localStorage.setItem('duel_userId', data.user.id)
           localStorage.setItem('duel_user', JSON.stringify(data.user))
+          setLeetcodeUsername(data.user.leetcodeUsername || '')
         }
       } catch (error) {
         console.error('User verification error:', error)
@@ -160,6 +163,32 @@ export default function Contest(){
       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Name updated locally', type:'success'}}))
     } catch (e) {
       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Failed to save name', type:'error'}}))
+    }
+  }
+
+  async function saveLeetcodeUsername(){
+    try {
+      await updateProfile({ leetcodeUsername: leetcodeUsername.trim() })
+      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'LeetCode username saved', type:'success'}}))
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message: err.message || 'Failed to save LeetCode username', type:'error'}}))
+    }
+  }
+
+  async function verifyOnLeetcode(idx){
+    setVerifyingIndex(idx)
+    try {
+      const data = await verifyLeetCodeSubmission(id, idx)
+      if (data.verified) {
+        setContest(data.contest)
+        window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Verified via LeetCode!', type:'success'}}))
+      } else {
+        window.dispatchEvent(new CustomEvent('show-toast',{detail:{message: data.message || 'Not verified yet', type:'warning'}}))
+      }
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('show-toast',{detail:{message: err.message || 'Verification failed', type:'error'}}))
+    } finally {
+      setVerifyingIndex(null)
     }
   }
 
@@ -373,25 +402,46 @@ export default function Contest(){
 
         {/* User Info Card */}
         <div className="card p-4 mb-6 animate-slideIn" style={{animationDelay: '0.1s'}}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
             <div className="flex-1">
               <label className="block text-sm font-medium mb-2">
                 Your Display Name
               </label>
-              <input 
-                value={displayName} 
-                onChange={e=>setDisplayName(e.target.value)} 
-                placeholder="Enter your display name" 
-                className="w-full sm:w-64" 
+              <input
+                value={displayName}
+                onChange={e=>setDisplayName(e.target.value)}
+                placeholder="Enter your display name"
+                className="w-full sm:w-64"
               />
             </div>
-            <button 
-              onClick={saveName} 
+            <button
+              onClick={saveName}
               className="btn-accent btn-sm"
             >
               Save Name
             </button>
-            
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-2">
+                Your LeetCode Username
+              </label>
+              <input
+                value={leetcodeUsername}
+                onChange={e=>setLeetcodeUsername(e.target.value)}
+                placeholder="e.g. john_doe123"
+                className="w-full sm:w-64"
+              />
+              <div className="text-xs text-muted mt-1">
+                Set this to verify solves against your real LeetCode submissions. Your submission history must be public.
+              </div>
+            </div>
+            <button
+              onClick={saveLeetcodeUsername}
+              className="btn-accent btn-sm"
+            >
+              Save
+            </button>
           </div>
         </div>
 
@@ -469,19 +519,29 @@ export default function Contest(){
                       <div className="flex items-center gap-3">
                         {contest.startTime && !ended ? (
                           solved ? (
-                            <button 
-                              onClick={()=>mark(i, false)} 
+                            <button
+                              onClick={()=>mark(i, false)}
                               className="btn-solved flex items-center gap-2"
                             >
                               Solved
                             </button>
                           ) : (
-                            <button 
-                              onClick={()=>mark(i, true)} 
-                              className="btn-accent"
-                            >
-                              Mark Solved
-                            </button>
+                            <>
+                              <button
+                                onClick={()=>verifyOnLeetcode(i)}
+                                disabled={verifyingIndex === i}
+                                className="btn-neutral btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Checks your real LeetCode submission history for this problem"
+                              >
+                                {verifyingIndex === i ? 'Checking...' : 'Verify via LeetCode'}
+                              </button>
+                              <button
+                                onClick={()=>mark(i, true)}
+                                className="btn-accent"
+                              >
+                                Mark Solved
+                              </button>
+                            </>
                           )
                         ) : (
                           <div className="text-sm text-muted italic">

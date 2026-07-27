@@ -1,6 +1,47 @@
 import { randomUUID } from 'crypto';
 import { withPrisma } from '../utils/database.js';
 import { ensureProblemsAvailable } from '../utils/problemIngestion.js';
+import { fetchRecentAcSubmissions } from '../utils/leetcode.js';
+
+const upsertUserDisplayName = async (prisma, userId, displayName) => {
+  try {
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: { name: displayName || undefined },
+      create: { id: userId, name: displayName || undefined }
+    });
+  } catch (e) {
+    console.error('User upsert error:', e);
+  }
+};
+
+const markResultSolved = async (prisma, { contestId, userId, problemIndex, verifiedVia }) => {
+  await prisma.result.upsert({
+    where: {
+      contestId_userId_problemIndex: { contestId, userId, problemIndex }
+    },
+    update: { solvedAt: new Date(), verifiedVia },
+    create: { contestId, userId, problemIndex, solvedAt: new Date(), verifiedVia }
+  });
+};
+
+const buildContestResponse = async (prisma, contest) => {
+  const rows = await prisma.result.findMany({ where: { contestId: contest.id } });
+  const results = {};
+  for (const r of rows) {
+    results[r.userId] = results[r.userId] || { solved: {} };
+    if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true;
+  }
+
+  return {
+    id: contest.id,
+    problems: contest.problems,
+    createdAt: contest.createdAt ? contest.createdAt.getTime() : Date.now(),
+    startTime: contest.startTime ? contest.startTime.getTime() : null,
+    duration: contest.durationSeconds,
+    results
+  };
+};
 
 export const createContest = async (req, res) => {
   try {
@@ -214,46 +255,13 @@ export const markProblem = async (req, res) => {
       if (!contest.startTime) return { error: 'contest not started', status: 400 }
 
       if (solved) {
-        try {
-          await prisma.user.upsert({
-            where: { id: userId },
-            update: { name: displayName || undefined },
-            create: { id: userId, name: displayName || undefined }
-          })
-        } catch (e) {
-          console.error('User upsert error:', e)
-        }
-
-        await prisma.result.upsert({
-          where: {
-            contestId_userId_problemIndex: {
-              contestId: id,
-              userId,
-              problemIndex: Number(problemIndex)
-            }
-          },
-          update: { solvedAt: new Date() },
-          create: { contestId: id, userId, problemIndex: Number(problemIndex), solvedAt: new Date() }
-        })
+        await upsertUserDisplayName(prisma, userId, displayName)
+        await markResultSolved(prisma, { contestId: id, userId, problemIndex: Number(problemIndex), verifiedVia: 'manual' })
       } else {
         await prisma.result.deleteMany({ where: { contestId: id, userId, problemIndex: Number(problemIndex) } })
       }
 
-      const rows = await prisma.result.findMany({ where: { contestId: id } })
-      const results = {}
-      for (const r of rows) {
-        results[r.userId] = results[r.userId] || { solved: {} }
-        if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
-      }
-
-      return { ok: true, contest: {
-        id: contest.id,
-        problems: contest.problems,
-        createdAt: contest.createdAt ? contest.createdAt.getTime() : Date.now(),
-        startTime: contest.startTime ? contest.startTime.getTime() : null,
-        duration: contest.durationSeconds,
-        results
-      } }
+      return { ok: true, contest: await buildContestResponse(prisma, contest) }
     })
 
     if (result.error) return res.status(result.status).json({ error: result.error })
@@ -261,5 +269,59 @@ export const markProblem = async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed to mark' })
+  }
+};
+
+// Verifies a solve against the user's real LeetCode submission history instead of
+// trusting a self-reported click. Needs User.leetcodeUsername set, and the check is
+// scoped to submissions timestamped after the contest started (so a problem solved
+// long before this contest doesn't count).
+export const verifyLeetCodeSubmission = async (req, res) => {
+  try {
+    const result = await withPrisma(async (prisma) => {
+      const id = req.params.id
+      const { problemIndex } = req.body
+      const userId = req.user.userId
+
+      const contest = await prisma.contest.findUnique({ where: { id } })
+      if (!contest) return { error: 'not found', status: 404 }
+      if (!contest.startTime) return { error: 'contest not started', status: 400 }
+
+      const problem = contest.problems[Number(problemIndex)]
+      if (!problem) return { error: 'invalid problem index', status: 400 }
+
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+      if (!user?.leetcodeUsername) {
+        return {
+          error: 'Set your LeetCode username in your profile first',
+          status: 400,
+          code: 'LEETCODE_USERNAME_NOT_SET'
+        }
+      }
+
+      const submissions = await fetchRecentAcSubmissions(user.leetcodeUsername, 30)
+      const contestStartMs = contest.startTime.getTime()
+
+      const match = submissions.find((s) => (
+        s.titleSlug === problem.slug && Number(s.timestamp) * 1000 >= contestStartMs
+      ))
+
+      if (!match) {
+        return {
+          verified: false,
+          message: 'No matching accepted LeetCode submission found yet. Make sure your LeetCode submission history is public, solve the problem there, then try again.'
+        }
+      }
+
+      await markResultSolved(prisma, { contestId: id, userId, problemIndex: Number(problemIndex), verifiedVia: 'leetcode' })
+
+      return { verified: true, contest: await buildContestResponse(prisma, contest) }
+    })
+
+    if (result.error) return res.status(result.status).json({ error: result.error, code: result.code })
+    res.json(result)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'failed to verify' })
   }
 };

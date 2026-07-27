@@ -135,6 +135,35 @@ export const revokeOtherSessions = async () => {
   if (!res || !res.ok) throw new Error('Failed to sign out other devices')
 }
 
+// Profile updates (display name, LeetCode username)
+export const updateProfile = async ({ name, leetcodeUsername }) => {
+  const res = await authFetch('/', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...(name !== undefined ? { name } : {}),
+      ...(leetcodeUsername !== undefined ? { leetcodeUsername } : {})
+    })
+  })
+  if (!res || !res.ok) {
+    const data = await res?.json().catch(() => ({}))
+    throw new Error(data?.error || 'Failed to update profile')
+  }
+  return res.json()
+}
+
+// Verify a contest problem as solved via the user's real LeetCode submission history
+export const verifyLeetCodeSubmission = async (contestId, problemIndex) => {
+  const res = await authFetch(`/contest/${contestId}/verify-leetcode`, {
+    method: 'POST',
+    body: JSON.stringify({ problemIndex })
+  })
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to verify LeetCode submission')
+  }
+  return data
+}
+
 export const logout = async () => {
   try {
     await authFetch('/auth/logout', { method: 'POST' })

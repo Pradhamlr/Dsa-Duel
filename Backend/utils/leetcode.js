@@ -67,6 +67,38 @@ export async function fetchQuestionContent(slug) {
   return response.data?.data?.question?.content || '';
 }
 
+const RECENT_AC_SUBMISSIONS_QUERY = `
+  query recentAcSubmissions($username: String!, $limit: Int!) {
+    recentAcSubmissionList(username: $username, limit: $limit) {
+      titleSlug
+      timestamp
+    }
+  }
+`;
+
+// Public, unauthenticated: the same data LeetCode's own profile page shows under
+// "Recent AC". Returns [] if the user has no recent accepted submissions, the
+// username doesn't exist, or the user has set their submission history to private --
+// those three cases are indistinguishable at this API, which callers need to handle
+// (see contestController.verifyLeetCodeSubmission).
+export async function fetchRecentAcSubmissions(username, limit = 20) {
+  const response = await axios.post(
+    GRAPHQL_URL,
+    { query: RECENT_AC_SUBMISSIONS_QUERY, variables: { username, limit } },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Referer': 'https://leetcode.com',
+        'User-Agent': 'Mozilla/5.0'
+      },
+      timeout: 15000
+    }
+  );
+
+  const list = response.data?.data?.recentAcSubmissionList;
+  return Array.isArray(list) ? list : [];
+}
+
 const PAGE_RETRY_ATTEMPTS = 3;
 const PAGE_RETRY_DELAY_MS = 1000;
 
