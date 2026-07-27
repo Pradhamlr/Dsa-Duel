@@ -1,139 +1,101 @@
-import axios from "axios";
+import axios from 'axios';
 
-const HF_URL = "https://router.huggingface.co/hf-inference/models/MoritzLaurer/deberta-v3-base-zeroshot-v2.0";
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
-const TAG_LABELS = [
-  "Array manipulation problem",
-  "String processing problem",
-  "Hashing / frequency counting problem",
-  "Stack-based problem",
-  "Queue-based problem",
-  "Linked list problem",
-  "Tree traversal / tree algorithm",
-  "Graph traversal / graph algorithm",
-  "Dynamic programming problem",
-  "Binary search on sorted data",
-  "Two pointers technique",
-  "Matrix / grid traversal",
-  "Mathematical calculation problem",
-  "SQL / database aggregation problem"
+// Must match the bucket list the rest of the app uses (Client topic picker,
+// utils/leetcodeTagMap.js).
+const VALID_TAGS = [
+  'Array', 'String', 'Hashing', 'Stack', 'Queue', 'LinkedList', 'Tree', 'Graph',
+  'DP', 'BinarySearch', 'TwoPointers', 'Matrix', 'Math', 'Database', 'Other'
 ];
 
-const LABEL_MAP = {
-  "Array manipulation problem": "Array",
-  "String processing problem": "String",
-  "Hashing / frequency counting problem": "Hashing",
-  "Stack-based problem": "Stack",
-  "Queue-based problem": "Queue",
-  "Linked list problem": "LinkedList",
-  "Tree traversal / tree algorithm": "Tree",
-  "Graph traversal / graph algorithm": "Graph",
-  "Dynamic programming problem": "DP",
-  "Binary search on sorted data": "BinarySearch",
-  "Two pointers technique": "TwoPointers",
-  "Matrix / grid traversal": "Matrix",
-  "Mathematical calculation problem": "Math",
-  "SQL / database aggregation problem": "Database"
+const stripHtml = (html) => {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
-// Confidence threshold - only accept AI predictions with strong confidence
-const CONFIDENT_THRESHOLD = 0.45;
+const SYSTEM_PROMPT = `You classify a competitive programming problem by the data structure or \
+algorithmic technique most central to solving it.
 
-export async function classifyProblem(problem) {
-  if (!process.env.HF_API_KEY) {
-    throw new Error("HF_API_KEY not configured");
+Choose 1-2 labels from this EXACT closed set, spelled exactly as shown:
+${VALID_TAGS.join(', ')}
+
+You are called only for problems LeetCode's own topic tags didn't cleanly map onto this \
+closed set — you'll be shown those original tags too. Use them as a strong hint, not \
+noise: e.g. a "shell" tag means this is a shell-scripting problem (always "Other" — this \
+app has no shell-script bucket), "design"/"heap-priority-queue"/"ordered-set" alone with \
+nothing else in the set usually means "Other" too, not a stretch match like "Tree".
+
+Rules:
+- Pick labels based on how the problem is SOLVED, not domain words in the title.
+- Prefer "Other" over a stretch match. Only pick a non-"Other" label if it genuinely fits.
+- Do NOT infer "Tree" just because a structure (ordered-set, heap, balanced BST) happens
+  to be implemented using a tree internally. Only use "Tree" when the problem itself is
+  about tree traversal/structure — binary trees, BSTs, tree recursion — not because of an
+  unrelated tag's typical internal implementation.
+- Do NOT infer "Math" from bit-manipulation-only problems unless the problem is actually
+  about numeric/counting/combinatorial computation, not bit tricks.
+- Respond with ONLY a JSON object: {"tags": ["Label1", "Label2"]}`;
+
+export async function classifyProblem({ title, description, leetcodeTags = [] }) {
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY not configured');
   }
 
-  const text = `
-    This is a competitive programming problem from LeetCode.
-    Classify it based on the main algorithmic technique used to solve it.
-
-    Do NOT classify by domain words.
-    Classify by how the problem is solved (data structures / algorithm strategy).
-
-    Problem:
-    Title: ${problem.title}
-    Description: ${problem.description || ""}
-    Constraints: ${problem.constraints || ""}
-    `;
+  const cleanDescription = stripHtml(description).slice(0, 3000);
+  const tagsLine = leetcodeTags.length > 0
+    ? `LeetCode's own topic tags for this problem: ${leetcodeTags.join(', ')}`
+    : `LeetCode's own topic tags for this problem: (none)`;
 
   const response = await axios.post(
-    HF_URL,
+    GROQ_URL,
     {
-      inputs: text,
-      parameters: {
-        candidate_labels: TAG_LABELS,
-        multi_label: true
-      }
+      model: GROQ_MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Title: ${title}\n\n${tagsLine}\n\nDescription:\n${cleanDescription || '(no description available)'}`
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.HF_API_KEY}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
       },
       timeout: 20000
     }
   );
 
-  console.log("HF RAW RESPONSE:", JSON.stringify(response.data, null, 2));
-
-   let data = response.data;
-
-  // Case: array of {label, score}
-  if (Array.isArray(data) && data[0]?.label && data[0]?.score !== undefined) {
-    const sorted = data.sort((a, b) => b.score - a.score);
-    const best = sorted[0];
-
-    // Log for debugging
-    console.log("AI Scores:", sorted.map(s => ({
-      label: s.label,
-      score: s.score.toFixed(3)
-    })));
-
-    // If model is confident, accept.
-    if (best.score >= CONFIDENT_THRESHOLD) {
-      const tag = LABEL_MAP[best.label];
-      if (!tag) {
-        return ["Other"];
-      }
-      return [tag];
-    }
-
-    // Otherwise, AI is unsure, so reject.
-    console.log(`AI abstained: best score ${best.score.toFixed(3)} < threshold ${CONFIDENT_THRESHOLD}`);
-    return ["Other"];
+  const raw = response.data?.choices?.[0]?.message?.content;
+  if (!raw) {
+    throw new Error('Unexpected Groq response shape');
   }
 
-  // Case: MNLI format
-  while (Array.isArray(data)) data = data[0];
-
-  if (data.labels && data.scores) {
-    const paired = data.labels.map((label, i) => ({
-      label,
-      score: data.scores[i]
-    })).sort((a, b) => b.score - a.score);
-    
-    const best = paired[0];
-
-    // Log for debugging
-    console.log("AI Scores:", paired.map(s => ({
-      label: s.label,
-      score: s.score.toFixed(3)
-    })));
-
-    // If model is confident, accept.
-    if (best.score >= CONFIDENT_THRESHOLD) {
-      const tag = LABEL_MAP[best.label];
-      if (!tag) {
-        return ["Other"];
-      }
-      return [tag];
-    }
-
-    // Otherwise, AI is unsure, so reject.
-    console.log(`AI abstained: best score ${best.score.toFixed(3)} < threshold ${CONFIDENT_THRESHOLD}`);
-    return ["Other"];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`Groq did not return valid JSON: ${raw}`);
   }
 
-  throw new Error("Unsupported Hugging Face response format");
+  const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
+  const valid = tags.filter((t) => VALID_TAGS.includes(t));
+
+  return valid.length > 0 ? valid : ['Other'];
 }
+
+export { stripHtml };

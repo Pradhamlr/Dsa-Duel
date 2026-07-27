@@ -1,30 +1,35 @@
-// src/jobs/aiRetryJob.js
 import { withPrisma } from "../utils/database.js";
+import { fetchQuestionContent } from "../utils/leetcode.js";
 import { classifyProblem } from "../services/aiTagger.js";
 
+const MAX_RETRIES = 3;
+
+// Problems only land here when the LLM fallback call itself threw (network/timeout/
+// rate-limit/parse error) -- a real answer, including a confident "Other", is stored
+// as aiStatus "completed" at ingestion time and never reaches this job. So retrying
+// here means "try the same call again because infra failed," not "hope the model
+// changes its mind."
 export async function retryPendingAITags() {
   await withPrisma(async (prisma) => {
     const pending = await prisma.problem.findMany({
       where: {
         aiStatus: "pending",
-        aiRetryCount: { lt: 2 }  // max 2 attempts
+        aiRetryCount: { lt: MAX_RETRIES }
       },
       orderBy: {
-        lastAiTriedAt: "asc"     // oldest tried first (null first)
+        lastAiTriedAt: "asc"
       },
-      take: 5   // small batch
+      take: 5
     });
 
     if (pending.length === 0) {
-      console.log("No pending problems to retry (all exhausted or completed)");
       return;
     }
 
-    console.log(`Retrying ${pending.length} pending problems...`);
+    console.log(`Retrying AI classification for ${pending.length} problem(s)...`);
 
     for (const p of pending) {
       try {
-        // Mark attempt BEFORE calling AI
         await prisma.problem.update({
           where: { id: p.id },
           data: {
@@ -34,28 +39,16 @@ export async function retryPendingAITags() {
         });
 
         const currentRetryCount = p.aiRetryCount + 1;
-        console.log(`Attempting AI classification for "${p.title}" (attempt ${currentRetryCount}/2)`);
+        console.log(`Retrying "${p.title}" (attempt ${currentRetryCount}/${MAX_RETRIES})`);
 
-        const aiTags = await classifyProblem(p);
+        const description = await fetchQuestionContent(p.leetcodeId);
+        const aiTags = await classifyProblem({
+          title: p.title,
+          description,
+          leetcodeTags: p.leetcodeTags
+        });
 
-        // If AI abstained (returned "Other"), check if we should give up
-        if (aiTags.includes("Other")) {
-          if (currentRetryCount >= 2) {
-            // Give up after 2 attempts - mark as failed
-            console.log(`AI failed to classify "${p.title}" after 2 attempts - marking as failed`);
-            await prisma.problem.update({
-              where: { id: p.id },
-              data: {
-                aiStatus: "failed"
-              }
-            });
-          } else {
-            console.log(`AI abstained for "${p.title}" - keeping as pending (${currentRetryCount}/2 attempts)`);
-          }
-          continue;
-        }
-
-        // AI succeeded with confident prediction
+        // Success -- resolved, whether the answer is a real bucket or a confident "Other".
         await prisma.problem.update({
           where: { id: p.id },
           data: {
@@ -66,9 +59,18 @@ export async function retryPendingAITags() {
           }
         });
 
-        console.log(`AI tagging completed for "${p.title}" - tags: ${aiTags.join(", ")}`);
+        console.log(`Resolved "${p.title}" -> ${aiTags.join(", ")}`);
       } catch (e) {
-        console.log(`AI retry failed for "${p.title}": ${e.message}`);
+        const exhausted = (p.aiRetryCount + 1) >= MAX_RETRIES;
+        if (exhausted) {
+          console.log(`Giving up on "${p.title}" after ${MAX_RETRIES} failed attempts: ${e.message}`);
+          await prisma.problem.update({
+            where: { id: p.id },
+            data: { aiStatus: "failed" }
+          });
+        } else {
+          console.log(`Retry failed for "${p.title}": ${e.message}`);
+        }
       }
     }
   });

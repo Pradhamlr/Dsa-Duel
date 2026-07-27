@@ -1,6 +1,7 @@
 import { withPrisma } from './database.js';
-import { fetchLeetCodePool } from './leetcode.js';
+import { fetchLeetCodePool, fetchQuestionContent } from './leetcode.js';
 import { classifyProblem } from '../services/aiTagger.js';
+import { mapLeetCodeTagsToBuckets } from './leetcodeTagMap.js';
 import { isBadTagSet } from './tagQuality.js';
 
 export async function ingestProblem(leetcodeProblem) {
@@ -9,32 +10,36 @@ export async function ingestProblem(leetcodeProblem) {
     const existing = await prisma.problem.findUnique({
       where: { leetcodeId: leetcodeProblem.slug }
     });
-    
+
     if (existing) return existing;
 
-    const ruleTags = classifyWithRules(leetcodeProblem);
+    const leetcodeTags = leetcodeProblem.topicTags || [];
+    const mappedTags = mapLeetCodeTagsToBuckets(leetcodeTags);
 
-    let finalTags = ruleTags;
-    let aiStatus = 'completed';
+    let finalTags = mappedTags;
     let tagSource = 'leetcode';
+    let aiStatus = 'completed';
     let aiTags = [];
 
-    if (isBadTagSet(ruleTags)) {
+    // Only the residual LeetCode's own tags don't resolve reaches the LLM tier.
+    if (isBadTagSet(mappedTags)) {
       try {
+        const description = await fetchQuestionContent(leetcodeProblem.slug);
         aiTags = await classifyProblem({
           title: leetcodeProblem.title,
-          description: '',
-          constraints: ''
+          description,
+          leetcodeTags
         });
-        
-        if (aiTags && aiTags.length > 0 && !aiTags.includes('Other')) {
-          finalTags = aiTags;
-          tagSource = 'ai';
-          aiStatus = 'completed';
-        } else {
-          aiStatus = 'pending';
-        }
+
+        // A successful call is a resolved answer either way -- including a confident
+        // "Other" -- so it's "completed", not "pending". Only a thrown error (network/
+        // rate-limit/parsing) means we genuinely don't know yet and should retry later.
+        finalTags = aiTags;
+        tagSource = 'ai';
+        aiStatus = 'completed';
       } catch (error) {
+        finalTags = ['Other'];
+        tagSource = 'leetcode';
         aiStatus = 'pending';
       }
     }
@@ -46,7 +51,7 @@ export async function ingestProblem(leetcodeProblem) {
         title: leetcodeProblem.title,
         difficulty: leetcodeProblem.difficulty,
         leetcodeUrl: `https://leetcode.com/problems/${leetcodeProblem.slug}/`,
-        leetcodeTags: ruleTags,
+        leetcodeTags,
         aiTags,
         finalTags,
         tagSource,
@@ -56,91 +61,6 @@ export async function ingestProblem(leetcodeProblem) {
 
     return problem;
   });
-}
-
-// Rule-based classification (reliable fallback)
-function classifyWithRules(problem) {
-  const text = `${problem.title} ${problem.slug || ""}`.toLowerCase();
-  const tags = [];
-
-  // 1. Database / SQL
-  if (/\b(sql|database|table|employee|salary|group by|join|select)\b/.test(text)) {
-    tags.push("Database");
-  }
-
-  // 2. Graph
-  if (/\b(graph|dfs|bfs|connected|cycle|topological|shortest path)\b/.test(text)) {
-    tags.push("Graph");
-  }
-
-  // 3. Tree
-  if (/\b(tree|binary tree|bst|node|ancestor|traversal)\b/.test(text)) {
-    tags.push("Tree");
-  }
-
-  // 4. Linked List
-  if (/\b(linked list|listnode|merge lists|reverse list)\b/.test(text)) {
-    tags.push("LinkedList");
-  }
-
-  // 5. Stack
-  if (/\b(stack|monotonic|parentheses|bracket)\b/.test(text)) {
-    tags.push("Stack");
-  }
-
-  // 6. Queue
-  if (/\b(queue|deque|sliding window)\b/.test(text)) {
-    tags.push("Queue");
-  }
-
-  // 7. DP
-  if (/\b(dp|dynamic programming|memo|tabulation|optimal substructure)\b/.test(text)) {
-    tags.push("DP");
-  }
-
-  // 8. Binary Search
-  if (/\b(binary search|search in sorted|lower bound|upper bound)\b/.test(text)) {
-    tags.push("BinarySearch");
-  }
-
-  // 9. Two Pointers
-  if (/\b(two pointers|slow fast|left right)\b/.test(text)) {
-    tags.push("TwoPointers");
-  }
-
-  // 10. Matrix
-  if (/\b(matrix|grid|2d|board)\b/.test(text)) {
-    tags.push("Matrix");
-  }
-
-  // 11. Hashing
-  if (/\b(hash|map|dictionary|frequency|count distinct)\b/.test(text)) {
-    tags.push("Hashing");
-  }
-
-  // 12. String
-  if (/\b(string|substring|palindrome|anagram|character)\b/.test(text)) {
-    tags.push("String");
-  }
-
-  // 13. Math (very important for your rectangle example)
-  if (/\b(rectangle|square|area|length|width|min|max|number of|count of|sum of)\b/.test(text)) {
-    tags.push("Math");
-    tags.push("Array"); // almost always iterating
-  }
-
-  // 14. Array (generic fallback if nothing else but still array-like)
-  if (/\b(array|arrays|nums|list of|elements)\b/.test(text)) {
-    tags.push("Array");
-  }
-
-  const unique = [...new Set(tags)];
-
-  if (unique.length === 0) {
-    return ["Other"];   
-  }
-
-  return unique.slice(0, 2);
 }
 
 
@@ -185,11 +105,14 @@ export async function ensureProblemsAvailable(filters, requiredCount) {
       throw new Error(`No problems available for difficulty: ${difficulty}`);
     }
 
-    // Prioritize problems that might match selected topics (pre-classification)
+    // Prioritize problems that will match selected topics once ingested. This is no
+    // longer a guess: p.topicTags are LeetCode's real tags (from fetchLeetCodePool),
+    // so mapLeetCodeTagsToBuckets computes the same primary-tier result ingestProblem
+    // will store. The small residual that needs the LLM tier to resolve (mapped to
+    // "Other" here) just gets deprioritized rather than guessed at.
     if (selectedTopics && selectedTopics.length > 0) {
-      // Try to predict which problems will match topics based on title/slug
       const withPriority = filteredPool.map(p => {
-        const predictedTags = classifyWithRules(p);
+        const predictedTags = mapLeetCodeTagsToBuckets(p.topicTags);
         const matchesTopics = selectedTopics.some(topic => predictedTags.includes(topic));
         return { problem: p, priority: matchesTopics ? 1 : 0 };
       });
