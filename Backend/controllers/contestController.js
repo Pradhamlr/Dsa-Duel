@@ -15,7 +15,7 @@ const upsertUserDisplayName = async (prisma, userId, displayName) => {
   }
 };
 
-const markResultSolved = async (prisma, { contestId, userId, problemIndex, verifiedVia }) => {
+export const markResultSolved = async (prisma, { contestId, userId, problemIndex, verifiedVia }) => {
   await prisma.result.upsert({
     where: {
       contestId_userId_problemIndex: { contestId, userId, problemIndex }
@@ -25,7 +25,7 @@ const markResultSolved = async (prisma, { contestId, userId, problemIndex, verif
   });
 };
 
-const buildContestResponse = async (prisma, contest) => {
+export const buildContestResponse = async (prisma, contest) => {
   const rows = await prisma.result.findMany({ where: { contestId: contest.id } });
   const results = {};
   for (const r of rows) {

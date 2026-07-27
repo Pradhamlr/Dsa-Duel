@@ -164,6 +164,31 @@ export const verifyLeetCodeSubmission = async (contestId, problemIndex) => {
   return data
 }
 
+// In-app judge: run (no scoring) or submit (scores + marks solved on a full pass)
+export const runCode = async (contestId, problemIndex, language, code) => {
+  const res = await authFetch(`/contest/${contestId}/run`, {
+    method: 'POST',
+    body: JSON.stringify({ problemIndex, language, code })
+  })
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to run code')
+  }
+  return data
+}
+
+export const submitCode = async (contestId, problemIndex, language, code) => {
+  const res = await authFetch(`/contest/${contestId}/submit`, {
+    method: 'POST',
+    body: JSON.stringify({ problemIndex, language, code })
+  })
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to submit code')
+  }
+  return data
+}
+
 export const logout = async () => {
   try {
     await authFetch('/auth/logout', { method: 'POST' })

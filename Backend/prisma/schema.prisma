@@ -89,6 +89,7 @@ model Result {
 enum VerificationSource {
   manual
   leetcode
+  judge
 }
 
 enum TagSource {

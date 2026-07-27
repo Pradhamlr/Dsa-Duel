@@ -80,6 +80,11 @@ export const otpRateLimit = combineRateLimits(
 // not IP, since this route requires auth already. Mount after authMiddleware.
 export const verifyLeetCodeRateLimit = createRateLimit(15 * 60 * 1000, 20, userKey);
 
+// Each Run/Submit click compiles + executes real code on the self-hosted Judge0 box --
+// more generous than the LeetCode check since iterating on code triggers this often,
+// but still capped so a runaway client script can't hammer the droplet.
+export const judgeRateLimit = createRateLimit(15 * 60 * 1000, 40, userKey);
+
 // Cleanup old entries every hour
 setInterval(() => {
   const now = Date.now();

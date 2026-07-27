@@ -644,7 +644,10 @@ export default function Contest(){
       {editorProblemIndex !== null && (
         <CodeEditor
           problem={contest.problems[editorProblemIndex]}
+          contestId={id}
+          problemIndex={editorProblemIndex}
           onClose={() => setEditorProblemIndex(null)}
+          onSolved={(updatedContest) => setContest(updatedContest)}
         />
       )}
     </div>
