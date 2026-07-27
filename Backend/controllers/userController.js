@@ -2,13 +2,16 @@ import { withPrisma } from '../utils/database.js';
 
 export const updateUser = async (req, res) => {
   try {
+    // Always the caller's own verified id -- never trust a client-supplied userId here,
+    // or any authenticated user could rename any other user.
+    const userId = req.user.userId
+    const { name } = req.body || {}
+
     await withPrisma(async (prisma) => {
-      const { userId, name } = req.body || {}
-      if (!userId) return res.status(400).json({ error: 'userId required' })
       try {
-        await prisma.user.upsert({ where: { id: userId }, update: { name: name || undefined }, create: { id: userId, name: name || undefined } })
+        await prisma.user.update({ where: { id: userId }, data: { name: name || undefined } })
       } catch (e) {
-        console.error('User upsert error:', e)
+        console.error('User update error:', e)
       }
     })
     res.json({ ok: true })
@@ -47,8 +50,10 @@ export const getLeaderboard = async (req, res) => {
 };
 
 export const getDebugResults = async (req, res) => {
-  if (process.env.NODE_ENV === 'production' && process.env.DEBUG_RESULTS !== 'true') {
-    return res.status(403).json({ error: 'forbidden' })
+  // Debug-only endpoint: never available in production, no env-var override.
+  // A stray DEBUG_RESULTS=true in a prod environment would otherwise reopen this.
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'not found' })
   }
   try {
     const result = await withPrisma(async (prisma) => {
