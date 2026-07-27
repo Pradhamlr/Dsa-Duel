@@ -51,14 +51,18 @@ const refreshAccessToken = async () => {
     if (response.ok) {
       const data = await response.json()
       localStorage.setItem('duel_access_token', data.accessToken)
-      return true
+      return { ok: true }
     }
+
+    const data = await response.json().catch(() => ({}))
+    return { ok: false, code: data.code }
   } catch (error) {
     console.error('Token refresh failed:', error)
+    return { ok: false }
   }
-  
-  return false
 }
+
+const SESSION_MESSAGE_KEY = 'duel_session_message'
 
 // Authenticated fetch wrapper
 export const authFetch = async (url, options = {}) => {
@@ -73,9 +77,9 @@ export const authFetch = async (url, options = {}) => {
 
   if (response.status === 401) {
     // Try to refresh token
-    const refreshed = await refreshAccessToken()
-    
-    if (refreshed) {
+    const refreshResult = await refreshAccessToken()
+
+    if (refreshResult.ok) {
       // Retry with new token
       response = await fetch(`${API}${url}`, {
         ...options,
@@ -88,12 +92,47 @@ export const authFetch = async (url, options = {}) => {
     } else {
       // Refresh failed, clear tokens and reload
       clearAuthSession()
+      if (refreshResult.code === 'SESSION_REVOKED') {
+        sessionStorage.setItem(
+          SESSION_MESSAGE_KEY,
+          'You were signed out because reuse of an old session token was detected. All devices were signed out for your safety.'
+        )
+      }
       window.location.reload()
       return
     }
   }
 
   return response
+}
+
+// Consumes (reads + clears) any pending session-security message left by authFetch,
+// so the app can surface it once after the reload it triggers.
+export const consumePendingSessionMessage = () => {
+  const message = sessionStorage.getItem(SESSION_MESSAGE_KEY)
+  if (message) sessionStorage.removeItem(SESSION_MESSAGE_KEY)
+  return message
+}
+
+// Session (device) management
+export const getSessions = async () => {
+  const res = await authFetch('/auth/sessions')
+  if (!res || !res.ok) throw new Error('Failed to load sessions')
+  const data = await res.json()
+  return data.sessions
+}
+
+export const revokeSession = async (sessionId) => {
+  const res = await authFetch(`/auth/sessions/${sessionId}`, { method: 'DELETE' })
+  if (!res || !res.ok) {
+    const data = await res?.json().catch(() => ({}))
+    throw new Error(data?.error || 'Failed to revoke session')
+  }
+}
+
+export const revokeOtherSessions = async () => {
+  const res = await authFetch('/auth/sessions/other', { method: 'DELETE' })
+  if (!res || !res.ok) throw new Error('Failed to sign out other devices')
 }
 
 export const logout = async () => {

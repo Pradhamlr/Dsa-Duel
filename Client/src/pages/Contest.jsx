@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Timer from '../components/Timer'
-import Toast from '../components/Toast'
 import { authFetch, API, clearAuthSession, getStoredUserId } from '../utils/api'
 
 export default function Contest(){
@@ -497,7 +496,6 @@ export default function Contest(){
             </div>
           </div>
         )}
-        <Toast />
       </div>
     </div>
   )

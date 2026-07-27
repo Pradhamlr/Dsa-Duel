@@ -8,7 +8,7 @@ import Auth from './components/Auth'
 import ForgotPassword from './components/ForgotPassword'
 import EmailVerification from './components/EmailVerification'
 import { ToastProvider } from './contexts/ToastContext'
-import { clearAuthSession, storeAuthSession } from './utils/api'
+import { clearAuthSession, storeAuthSession, consumePendingSessionMessage } from './utils/api'
 
 export default function App(){
   const [user, setUser] = useState(null)
@@ -89,6 +89,15 @@ export default function App(){
   useEffect(() => {
     // Force light theme only
     document.documentElement.classList.remove('dark')
+  }, [])
+
+  // Surface a one-time message if authFetch forced a reload due to detected
+  // refresh-token reuse (see utils/api.js consumePendingSessionMessage).
+  useEffect(() => {
+    const message = consumePendingSessionMessage()
+    if (message) {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type: 'warning' } }))
+    }
   }, [])
 
   const handleAuthSuccess = (userData) => {

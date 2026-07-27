@@ -6,11 +6,16 @@ import { withPrisma } from '../utils/database.js';
 import { sendEmail } from '../utils/sendEmail.js';
 import AppError from '../utils/AppError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import {
+  createSession,
+  rotateSession,
+  revokeSessionByToken,
+  revokeAllSessionsForUser
+} from '../services/sessionService.js';
+import { REFRESH_COOKIE_NAME, getRefreshTokenFromRequest } from '../utils/cookies.js';
 
 const ACCESS_TOKEN_TTL = '15m';
-const REFRESH_TOKEN_TTL = '7d';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const REFRESH_COOKIE_NAME = 'duel_refresh_token';
 const GOOGLE_SCOPES = ['openid', 'email', 'profile'];
 
 const getGoogleOAuthClient = () => {
@@ -23,28 +28,22 @@ const getGoogleOAuthClient = () => {
   return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
 };
 
-const issueTokens = async (prisma, user) => {
-  const accessToken = jwt.sign(
-    { userId: user.id, email: user.email, username: user.username, typ: 'access' },
-    process.env.JWT_SECRET,
-    { expiresIn: ACCESS_TOKEN_TTL }
-  );
+const signAccessToken = (user) => jwt.sign(
+  { userId: user.id, email: user.email, username: user.username, typ: 'access' },
+  process.env.JWT_SECRET,
+  { expiresIn: ACCESS_TOKEN_TTL }
+);
 
-  const refreshToken = jwt.sign(
-    { userId: user.id, type: 'refresh' },
-    process.env.JWT_SECRET,
-    { expiresIn: REFRESH_TOKEN_TTL }
-  );
-  const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+const requestMeta = (req) => ({
+  userAgent: req.headers['user-agent'] || null,
+  ipAddress: req.ip
+});
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      refreshToken: hashedRefreshToken,
-      refreshTokenExpiry: new Date(Date.now() + REFRESH_TOKEN_TTL_MS)
-    }
-  });
-
+// Issues an access token (JWT) plus a brand new session (opaque refresh token).
+// Used for login/register-verify/OAuth — anywhere a fresh session should start.
+const issueTokens = async (prisma, user, meta = {}) => {
+  const accessToken = signAccessToken(user);
+  const refreshToken = await createSession(prisma, user.id, meta);
   return { accessToken, refreshToken };
 };
 
@@ -76,44 +75,6 @@ const setRefreshCookie = (res, refreshToken) => {
 const clearRefreshCookie = (res) => {
   const { maxAge, ...options } = refreshCookieOptions();
   res.clearCookie(REFRESH_COOKIE_NAME, options);
-};
-
-const getCookieValue = (req, name) => {
-  const cookieHeader = req.headers.cookie;
-  if (!cookieHeader) return null;
-
-  return cookieHeader
-    .split(';')
-    .map((cookie) => cookie.trim())
-    .reduce((match, cookie) => {
-      if (match) return match;
-      const separatorIndex = cookie.indexOf('=');
-      if (separatorIndex === -1) return null;
-      const key = cookie.slice(0, separatorIndex);
-      const value = cookie.slice(separatorIndex + 1);
-      return key === name ? decodeURIComponent(value) : null;
-    }, null);
-};
-
-const getRefreshTokenFromRequest = (req) => (
-  getCookieValue(req, REFRESH_COOKIE_NAME) ||
-  req.body?.refreshToken ||
-  req.validatedBody?.refreshToken ||
-  null
-);
-
-const refreshTokenMatches = async (storedToken, candidateToken) => {
-  if (!storedToken || !candidateToken) return false;
-
-  if (storedToken === candidateToken) {
-    return true;
-  }
-
-  try {
-    return await bcrypt.compare(candidateToken, storedToken);
-  } catch {
-    return false;
-  }
 };
 
 const createOAuthState = () => jwt.sign(
@@ -205,6 +166,7 @@ export const register = asyncHandler(async (req, res) => {
 
 export const login = asyncHandler(async (req, res) => {
   const { email, username, password } = req.validatedBody;
+  const meta = requestMeta(req);
 
   const result = await withPrisma(async (prisma) => {
     const user = await prisma.user.findFirst({
@@ -234,7 +196,7 @@ export const login = asyncHandler(async (req, res) => {
       data: { lastLogin: new Date() }
     });
 
-    const tokens = await issueTokens(prisma, user);
+    const tokens = await issueTokens(prisma, user, meta);
 
     return {
       ...tokens,
@@ -359,6 +321,11 @@ export const resetPassword = asyncHandler(async (req, res) => {
       }
     });
 
+    // A password reset means the credential may have been compromised (or the
+    // legitimate owner is regaining control from someone else) — kill every
+    // existing session so a stale device/attacker session can't linger.
+    await revokeAllSessionsForUser(prisma, user.id, 'password_reset');
+
     return { message: 'Password reset successfully' };
   });
 
@@ -366,35 +333,34 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
-  const refreshToken = getRefreshTokenFromRequest(req);
+  const incomingToken = getRefreshTokenFromRequest(req);
 
-  if (!refreshToken) {
+  if (!incomingToken) {
     throw new AppError('Refresh token required', 401, 'REFRESH_TOKEN_REQUIRED');
   }
 
+  const meta = requestMeta(req);
+
   const result = await withPrisma(async (prisma) => {
-    let decoded;
-    try {
-      decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-    } catch {
-      throw new AppError('Invalid refresh token', 401, 'INVALID_REFRESH_TOKEN');
-    }
+    const rotation = await rotateSession(prisma, incomingToken, meta);
 
-    if (decoded.type !== 'refresh') {
-      throw new AppError('Invalid token type', 401, 'INVALID_TOKEN_TYPE');
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }
-    });
-
-    const validStoredToken = await refreshTokenMatches(user?.refreshToken, refreshToken);
-
-    if (!user || !validStoredToken || !user.refreshTokenExpiry || new Date() > user.refreshTokenExpiry) {
+    if (!rotation.ok) {
+      if (rotation.reason === 'REUSE_DETECTED') {
+        throw new AppError(
+          'Refresh token reuse detected. All sessions have been signed out for your safety.',
+          401,
+          'SESSION_REVOKED'
+        );
+      }
       throw new AppError('Invalid or expired refresh token', 401, 'INVALID_REFRESH_TOKEN');
     }
 
-    return issueTokens(prisma, user);
+    const user = await prisma.user.findUnique({ where: { id: rotation.userId } });
+    if (!user) {
+      throw new AppError('Invalid or expired refresh token', 401, 'INVALID_REFRESH_TOKEN');
+    }
+
+    return { accessToken: signAccessToken(user), refreshToken: rotation.token };
   });
 
   setRefreshCookie(res, result.refreshToken);
@@ -403,6 +369,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
 
 export const verifyEmail = asyncHandler(async (req, res) => {
   const { email, otp } = req.validatedBody;
+  const meta = requestMeta(req);
 
   const result = await withPrisma(async (prisma) => {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -429,7 +396,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
       }
     });
 
-    const tokens = await issueTokens(prisma, updatedUser);
+    const tokens = await issueTokens(prisma, updatedUser, meta);
 
     return {
       ...tokens,
@@ -445,14 +412,12 @@ export const verifyEmail = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
+  const incomingToken = getRefreshTokenFromRequest(req);
+
   await withPrisma(async (prisma) => {
-    await prisma.user.updateMany({
-      where: { id: req.user.userId },
-      data: {
-        refreshToken: null,
-        refreshTokenExpiry: null
-      }
-    });
+    if (incomingToken) {
+      await revokeSessionByToken(prisma, incomingToken, 'logout');
+    }
   });
 
   clearRefreshCookie(res);
@@ -473,6 +438,7 @@ export const startGoogleOAuth = asyncHandler(async (req, res) => {
 
 export const googleOAuthCallback = asyncHandler(async (req, res) => {
   const { code, state, error } = req.query;
+  const meta = requestMeta(req);
 
   if (error) {
     return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_DENIED'));
@@ -516,6 +482,17 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
         }
       });
 
+      // Only auto-link into an existing account by email when that account is already
+      // verified. Otherwise an attacker could pre-register someone's email with a
+      // password (unverified) and have this Google login silently verify + adopt it.
+      if (user && !user.googleId && !user.emailVerified) {
+        throw new AppError(
+          'An account with this email already exists. Please verify it or reset your password first.',
+          409,
+          'EMAIL_ACCOUNT_UNVERIFIED'
+        );
+      }
+
       if (user) {
         user = await prisma.user.update({
           where: { id: user.id },
@@ -541,7 +518,7 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
         });
       }
 
-      const tokens = await issueTokens(prisma, user);
+      const tokens = await issueTokens(prisma, user, meta);
 
       return {
         ...tokens,
@@ -556,6 +533,9 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
     }));
   } catch (err) {
     console.error('Google OAuth callback failed:', err);
+    if (err instanceof AppError && err.code === 'EMAIL_ACCOUNT_UNVERIFIED') {
+      return res.redirect(buildOAuthErrorRedirect('EMAIL_ACCOUNT_UNVERIFIED'));
+    }
     return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_FAILED'));
   }
 });

@@ -65,6 +65,19 @@ app.listen(PORT, () => {
                 );
             }, 60 * 1000);
         });
+
+        // Sweep sessions that have been expired for 30+ days so the table doesn't
+        // grow unbounded from stale/abandoned devices.
+        Promise.all([
+            import('./utils/database.js'),
+            import('./services/sessionService.js')
+        ]).then(([{ withPrisma }, { deleteExpiredSessions }]) => {
+            setInterval(() => {
+                withPrisma((prisma) => deleteExpiredSessions(prisma)).catch(err =>
+                    console.error("Expired session cleanup failed:", err)
+                );
+            }, 6 * 60 * 60 * 1000);
+        });
     } else {
         console.log('DATABASE_URL not found - AI retry job disabled');
     }

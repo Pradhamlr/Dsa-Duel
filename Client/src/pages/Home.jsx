@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Toast from '../components/Toast'
+import Sessions from '../components/Sessions'
 import { authFetch, clearAuthSession, logout } from '../utils/api'
 
 const SunIcon = () => (
@@ -33,6 +33,7 @@ export default function Home(){
   const navigate = useNavigate()
   const [createdLink, setCreatedLink] = useState('')
   const [dark, setDark] = useState(false)
+  const [showSessions, setShowSessions] = useState(false)
 
   // Verify user exists on mount
   useEffect(() => {
@@ -158,8 +159,32 @@ export default function Home(){
           >
             <SunIcon />
           </button>
-          <button 
-            onClick={()=>navigate('/leaderboard')} 
+          <button
+            onClick={() => setShowSessions(true)}
+            style={{
+              backgroundColor: '#f8fafc',
+              color: '#374151',
+              padding: '6px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#f1f5f9'
+              e.target.style.borderColor = '#9ca3af'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = '#f8fafc'
+              e.target.style.borderColor = '#d1d5db'
+            }}
+          >
+            SESSIONS
+          </button>
+          <button
+            onClick={()=>navigate('/leaderboard')}
             style={{
               backgroundColor: '#f8fafc',
               color: '#374151',
@@ -755,8 +780,8 @@ export default function Home(){
           </div>
         </div>
       </div>
-        
-      <Toast />
+
+      {showSessions && <Sessions onClose={() => setShowSessions(false)} />}
       {loading && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
           <div className="card p-8 flex flex-col items-center gap-4 max-w-sm mx-4">
