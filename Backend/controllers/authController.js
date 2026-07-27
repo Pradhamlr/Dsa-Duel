@@ -25,7 +25,7 @@ const getGoogleOAuthClient = () => {
 
 const issueTokens = async (prisma, user) => {
   const accessToken = jwt.sign(
-    { userId: user.id, email: user.email, username: user.username },
+    { userId: user.id, email: user.email, username: user.username, typ: 'access' },
     process.env.JWT_SECRET,
     { expiresIn: ACCESS_TOKEN_TTL }
   );

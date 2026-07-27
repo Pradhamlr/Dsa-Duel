@@ -12,7 +12,7 @@ model User {
   email     String?  @unique
   username  String?  @unique
   password  String?
-  name      String? 
+  name      String?
   googleId  String?  @unique
   authProvider String?
   createdAt DateTime @default(now())
@@ -20,14 +20,38 @@ model User {
   lastLogin DateTime?
   resetToken String?  @unique
   resetTokenExpiry DateTime?
-  refreshToken String? @unique
-  refreshTokenExpiry DateTime?
   emailVerified Boolean @default(false)
   verificationToken String? @unique
   verificationTokenExpiry DateTime?
 
   contests  Contest[] @relation("CreatorContests")
   results   Result[]
+  sessions  Session[]
+}
+
+model Session {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash     String    @unique
+  previousHash  String?
+  rotatedAt     DateTime?
+  familyId      String
+
+  userAgent     String?
+  ipAddress     String?
+  deviceLabel   String?
+
+  createdAt     DateTime  @default(now())
+  lastUsedAt    DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
 }
 
 model Contest {

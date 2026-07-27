@@ -12,7 +12,7 @@ router.post('/login', loginRateLimit, validateDto(loginDto), login);
 router.get('/me', authMiddleware, getMe);
 router.post('/forgot-password', forgotPasswordRateLimit, validateDto(emailDto), forgotPassword);
 router.post('/verify-otp', otpRateLimit, validateDto(otpDto), verifyOTP);
-router.post('/reset-password', validateDto(resetPasswordDto), resetPassword);
+router.post('/reset-password', otpRateLimit, validateDto(resetPasswordDto), resetPassword);
 router.post('/refresh-token', refreshToken);
 router.post('/verify-email', otpRateLimit, validateDto(otpDto), verifyEmail);
 router.post('/logout', authMiddleware, logout);

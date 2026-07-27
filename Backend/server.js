@@ -16,17 +16,14 @@ const app = express();
 // CORS configuration
 const allowedOrigins = [
   'https://dsa-duel.vercel.app',
-  'http://localhost:5173'
+  'http://localhost:5173',
+  ...(process.env.EXTRA_ALLOWED_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
 ]
 
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('CORS check, origin:', origin)
     if (!origin) return callback(null, true)
     if (allowedOrigins.includes(origin)) return callback(null, true)
-    try {
-      if (typeof origin === 'string' && origin.endsWith('.vercel.app')) return callback(null, true)
-    } catch (e) { /* ignore */ }
     const msg = 'The CORS policy for this site does not allow access from the specified Origin.'
     return callback(new Error(msg), false)
   },
@@ -34,6 +31,9 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200,
 }
+
+// Trust Render's reverse proxy so req.ip is the real client IP, not the proxy's
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors(corsOptions));
