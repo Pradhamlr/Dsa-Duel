@@ -67,6 +67,110 @@ export async function fetchQuestionContent(slug) {
   return response.data?.data?.question?.content || '';
 }
 
+const QUESTION_DETAIL_QUERY = `
+  query questionDetail($titleSlug: String!) {
+    question(titleSlug: $titleSlug) {
+      content
+      exampleTestcases
+      metaData
+      codeSnippets {
+        langSlug
+        code
+      }
+    }
+  }
+`;
+
+// Everything Phase 2 (judge-metadata backfill) needs for one problem, in a single
+// request: real description text, LeetCode's own example inputs, the structured
+// function signature, and per-language starter code. Retried like page fetches --
+// a single problem timing out shouldn't kill a catalog-wide backfill run.
+const fetchQuestionDetailOnce = async (slug) => {
+  const response = await axios.post(
+    GRAPHQL_URL,
+    { query: QUESTION_DETAIL_QUERY, variables: { titleSlug: slug } },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Referer': 'https://leetcode.com',
+        'User-Agent': 'Mozilla/5.0'
+      },
+      timeout: 15000
+    }
+  );
+
+  const q = response.data?.data?.question;
+  if (!q) {
+    throw new Error('Unexpected LeetCode GraphQL response shape');
+  }
+
+  let metaData = null;
+  try {
+    metaData = q.metaData ? JSON.parse(q.metaData) : null;
+  } catch {
+    metaData = null;
+  }
+
+  const codeSnippets = {};
+  for (const snippet of q.codeSnippets || []) {
+    codeSnippets[snippet.langSlug] = snippet.code;
+  }
+
+  return {
+    content: q.content || '',
+    exampleTestcases: q.exampleTestcases || '',
+    metaData,
+    codeSnippets
+  };
+};
+
+export async function fetchQuestionDetail(slug) {
+  let lastError;
+  for (let attempt = 1; attempt <= PAGE_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await fetchQuestionDetailOnce(slug);
+    } catch (error) {
+      lastError = error;
+      if (attempt < PAGE_RETRY_ATTEMPTS) {
+        await sleep(PAGE_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+  throw lastError;
+}
+
+const RECENT_AC_SUBMISSIONS_QUERY = `
+  query recentAcSubmissions($username: String!, $limit: Int!) {
+    recentAcSubmissionList(username: $username, limit: $limit) {
+      titleSlug
+      timestamp
+    }
+  }
+`;
+
+// Public, unauthenticated: the same data LeetCode's own profile page shows under
+// "Recent AC". Returns [] if the user has no recent accepted submissions, the
+// username doesn't exist, or the user has set their submission history to private --
+// those three cases are indistinguishable at this API, which callers need to handle
+// (see contestController.verifyLeetCodeSubmission).
+export async function fetchRecentAcSubmissions(username, limit = 20) {
+  const response = await axios.post(
+    GRAPHQL_URL,
+    { query: RECENT_AC_SUBMISSIONS_QUERY, variables: { username, limit } },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Referer': 'https://leetcode.com',
+        'User-Agent': 'Mozilla/5.0'
+      },
+      timeout: 15000
+    }
+  );
+
+  const list = response.data?.data?.recentAcSubmissionList;
+  return Array.isArray(list) ? list : [];
+}
+
 const PAGE_RETRY_ATTEMPTS = 3;
 const PAGE_RETRY_DELAY_MS = 1000;
 

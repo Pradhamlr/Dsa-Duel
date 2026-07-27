@@ -1,20 +1,34 @@
 import { withPrisma } from '../utils/database.js';
 
+const LEETCODE_USERNAME_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
+
 export const updateUser = async (req, res) => {
   try {
     // Always the caller's own verified id -- never trust a client-supplied userId here,
     // or any authenticated user could rename any other user.
     const userId = req.user.userId
-    const { name } = req.body || {}
+    const { name, leetcodeUsername } = req.body || {}
 
-    await withPrisma(async (prisma) => {
+    if (leetcodeUsername !== undefined && leetcodeUsername !== '' && !LEETCODE_USERNAME_REGEX.test(leetcodeUsername)) {
+      return res.status(400).json({ error: 'Invalid LeetCode username format' })
+    }
+
+    const user = await withPrisma(async (prisma) => {
       try {
-        await prisma.user.update({ where: { id: userId }, data: { name: name || undefined } })
+        return await prisma.user.update({
+          where: { id: userId },
+          data: {
+            name: name || undefined,
+            ...(leetcodeUsername !== undefined ? { leetcodeUsername: leetcodeUsername || null } : {})
+          }
+        })
       } catch (e) {
         console.error('User update error:', e)
+        return null
       }
     })
-    res.json({ ok: true })
+
+    res.json({ ok: true, user: user ? { name: user.name, leetcodeUsername: user.leetcodeUsername } : null })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed' })

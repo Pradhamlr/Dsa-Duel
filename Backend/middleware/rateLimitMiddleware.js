@@ -7,6 +7,8 @@ const identifierKey = (req) => {
   return typeof identifier === 'string' ? identifier.trim().toLowerCase() : null;
 };
 
+const userKey = (req) => req.user?.userId || null;
+
 // Two limiter dimensions are needed, not one:
 //   - per-IP: stops one attacker hammering many accounts from one address
 //   - per-identifier: stops a distributed/botnet attack hammering ONE account from many IPs
@@ -73,6 +75,15 @@ export const otpRateLimit = combineRateLimits(
   perIp(15 * 60 * 1000, 5),
   perIdentifier(15 * 60 * 1000, 8)
 );
+
+// Each verification hits an external API (LeetCode) -- keyed per authenticated user,
+// not IP, since this route requires auth already. Mount after authMiddleware.
+export const verifyLeetCodeRateLimit = createRateLimit(15 * 60 * 1000, 20, userKey);
+
+// Each Run/Submit click compiles + executes real code on the self-hosted Judge0 box --
+// more generous than the LeetCode check since iterating on code triggers this often,
+// but still capped so a runaway client script can't hammer the droplet.
+export const judgeRateLimit = createRateLimit(15 * 60 * 1000, 40, userKey);
 
 // Cleanup old entries every hour
 setInterval(() => {
