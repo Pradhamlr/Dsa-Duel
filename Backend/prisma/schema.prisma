@@ -28,6 +28,7 @@ model User {
   contests  Contest[] @relation("CreatorContests")
   results   Result[]
   sessions  Session[]
+  submissions Submission[]
 }
 
 model Session {
@@ -66,6 +67,7 @@ model Contest {
   startTime       DateTime?
   durationSeconds Int
   results         Result[]
+  submissions     Submission[]
 
   @@index([creatorId])
 }
@@ -119,9 +121,49 @@ model Problem {
   aiRetryCount  Int      @default(0)
   lastAiTriedAt DateTime?
 
+  // In-app judge metadata (Phase 2 backfill populates these; all nullable/defaulted
+  // so this is purely additive and invisible to any code that doesn't reference them).
+  functionSignature Json?    // LeetCode's metaData: {name, params:[{name,type}], return:{type,size}}
+  codeSnippets      Json?    // real starter code per language, e.g. {java: "...", cpp: "..."}
+  testCases         Json?    // parsed [{input:{...}, output:...}] pairs, examples only
+  judgeSupported    Boolean  @default(false)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([difficulty])
   @@index([finalTags])
+  @@index([judgeSupported])
+}
+
+enum SubmissionLanguage {
+  java
+  cpp
+}
+
+enum SubmissionVerdict {
+  accepted
+  wrong_answer
+  compile_error
+  runtime_error
+  time_limit_exceeded
+  pending
+}
+
+model Submission {
+  id          String   @id @default(uuid())
+  contestId   String
+  contest     Contest  @relation(fields: [contestId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  problemIndex Int
+
+  language    SubmissionLanguage
+  code        String
+  verdict     SubmissionVerdict @default(pending)
+  testResults Json?            // [{input, expectedOutput, actualOutput, passed, error?}]
+
+  createdAt   DateTime @default(now())
+
+  @@index([contestId, userId, problemIndex])
 }
