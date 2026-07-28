@@ -247,13 +247,11 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
                     {Array.isArray(testResults) && testResults.map((t, i) => (
                       <div key={i} className={`text-xs rounded-lg px-3 py-2 mb-1.5 border ${t.passed ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : 'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
                         <div className="font-semibold">Test case {i + 1}: {t.passed ? 'Passed' : 'Failed'}</div>
-                        {!t.passed && (
-                          <div className="mt-1 space-y-0.5">
-                            <div>Input: {JSON.stringify(t.input)}</div>
-                            <div>Expected: {JSON.stringify(t.expectedOutput)}</div>
-                            {t.error ? <div>Error: {t.error}</div> : <div>Got: {JSON.stringify(t.actualOutput)}</div>}
-                          </div>
-                        )}
+                        <div className="mt-1 space-y-0.5">
+                          <div>Input: {JSON.stringify(t.input)}</div>
+                          <div>Expected: {JSON.stringify(t.expectedOutput)}</div>
+                          {t.error ? <div>Error: {t.error}</div> : <div>Got: {JSON.stringify(t.actualOutput)}</div>}
+                        </div>
                       </div>
                     ))}
                   </div>
