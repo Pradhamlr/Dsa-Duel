@@ -29,6 +29,7 @@ model User {
   results   Result[]
   sessions  Session[]
   submissions Submission[]
+  solvedProblems SolvedProblem[]
 }
 
 model Session {
@@ -130,12 +131,40 @@ model Problem {
   judgeSupported    Boolean  @default(false)
   description       String?  // raw problem-statement HTML, sanitized client-side before render
 
+  // Named curated lists this problem belongs to (e.g. "neetcode150", "neetcode250") --
+  // a problem can be in more than one, since neetcode250 is a superset of neetcode150.
+  pools        String[]
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  solvedBy     SolvedProblem[]
 
   @@index([difficulty])
   @@index([finalTags])
   @@index([judgeSupported])
+}
+
+enum SolvedProblemStatus {
+  attempted
+  solved
+}
+
+// One row per (user, problem): the source of truth for the revision tab and for
+// biasing contest problem selection away from what a user has already engaged with.
+// Deliberately separate from Result (which is per-contest-attempt) -- this tracks a
+// user's relationship to a problem across their whole history, not one contest.
+model SolvedProblem {
+  id                Int      @id @default(autoincrement())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId         String
+  problem           Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  status            SolvedProblemStatus
+  lastInteractionAt DateTime @default(now())
+
+  @@unique([userId, problemId])
+  @@index([userId, status])
 }
 
 enum SubmissionLanguage {

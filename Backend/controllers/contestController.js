@@ -16,7 +16,29 @@ const upsertUserDisplayName = async (prisma, userId, displayName) => {
   }
 };
 
-export const markResultSolved = async (prisma, { contestId, userId, problemIndex, verifiedVia }) => {
+// Tracks a user's relationship to a problem independent of any single contest --
+// powers the revision tab and (Phase 4) biasing future contest problem selection away
+// from what a user has already engaged with. Deliberately never downgrades an
+// already-'solved' row back to 'attempted' on a later failed submission of the same
+// problem (e.g. a different contest reusing it, or a deliberately-wrong test submit).
+export const recordProblemInteraction = async (prisma, { userId, slug, status }) => {
+  if (!slug) return;
+  const problem = await prisma.problem.findUnique({ where: { leetcodeId: slug }, select: { id: true } });
+  if (!problem) return;
+
+  const existing = await prisma.solvedProblem.findUnique({
+    where: { userId_problemId: { userId, problemId: problem.id } }
+  });
+  if (existing?.status === 'solved' && status === 'attempted') return;
+
+  await prisma.solvedProblem.upsert({
+    where: { userId_problemId: { userId, problemId: problem.id } },
+    update: { status, lastInteractionAt: new Date() },
+    create: { userId, problemId: problem.id, status, lastInteractionAt: new Date() }
+  });
+};
+
+export const markResultSolved = async (prisma, { contestId, userId, problemIndex, verifiedVia, slug }) => {
   await prisma.result.upsert({
     where: {
       contestId_userId_problemIndex: { contestId, userId, problemIndex }
@@ -24,6 +46,8 @@ export const markResultSolved = async (prisma, { contestId, userId, problemIndex
     update: { solvedAt: new Date(), verifiedVia },
     create: { contestId, userId, problemIndex, solvedAt: new Date(), verifiedVia }
   });
+
+  await recordProblemInteraction(prisma, { userId, slug, status: 'solved' });
 };
 
 export const buildContestResponse = async (prisma, contest) => {
@@ -269,9 +293,12 @@ export const markProblem = async (req, res) => {
       if (!contest) return { error: 'not found', status: 404 }
       if (!contest.startTime) return { error: 'contest not started', status: 400 }
 
+      const problemSnapshot = contest.problems[problemIndex]
+      if (!problemSnapshot) return { error: 'invalid problem index', status: 400 }
+
       if (solved) {
         await upsertUserDisplayName(prisma, userId, displayName)
-        await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'manual' })
+        await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'manual', slug: problemSnapshot.slug })
       } else {
         await prisma.result.deleteMany({ where: { contestId: id, userId, problemIndex } })
       }
@@ -407,7 +434,7 @@ export const verifyLeetCodeSubmission = async (req, res) => {
         }
       }
 
-      await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'leetcode' })
+      await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'leetcode', slug: problem.slug })
 
       return { verified: true, contest: await buildContestResponse(prisma, contest) }
     })

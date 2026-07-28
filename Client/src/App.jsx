@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Contest from './pages/Contest'
+import Revision from './pages/Revision'
 import Landing from './pages/Landing'
 import Auth from './components/Auth'
 import ForgotPassword from './components/ForgotPassword'
@@ -228,6 +229,7 @@ export default function App(){
           <Routes>
             <Route path="/" element={<Home/>} />
             <Route path="/contest/:id" element={<Contest/>} />
+            <Route path="/revision" element={<Revision/>} />
           </Routes>
         </BrowserRouter>
       </div>

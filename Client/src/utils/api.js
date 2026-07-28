@@ -151,6 +151,26 @@ export const updateProfile = async ({ name, leetcodeUsername }) => {
   return res.json()
 }
 
+// Revision tab: every problem this user has ever attempted/solved, across all contests
+export const getSolvedProblems = async () => {
+  const res = await authFetch('/problems/solved')
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to load your problem history')
+  }
+  return data.rows
+}
+
+// Scoped server-side to the caller's own history -- irreversible, UI must confirm first
+export const clearSolvedProblems = async () => {
+  const res = await authFetch('/problems/solved', { method: 'DELETE' })
+  if (!res || !res.ok) {
+    const data = await res?.json().catch(() => ({}))
+    throw new Error(data?.error || 'Failed to clear your progress')
+  }
+  return res.json()
+}
+
 // EventSource can't set custom headers, so the access token travels as a query param
 // instead (verified server-side by sseAuthMiddleware the same way the Authorization
 // header is elsewhere). Live contest updates + the connected-participants roster.

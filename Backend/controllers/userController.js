@@ -35,6 +35,47 @@ export const updateUser = async (req, res) => {
   }
 };
 
+// The revision tab's data source -- every problem this user has ever attempted or
+// solved, independent of which contest(s) it happened in.
+export const getSolvedProblems = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const result = await withPrisma(async (prisma) => {
+      const rows = await prisma.solvedProblem.findMany({
+        where: { userId },
+        orderBy: { lastInteractionAt: 'desc' },
+        include: { problem: { select: { title: true, difficulty: true, leetcodeId: true, leetcodeUrl: true, finalTags: true } } }
+      })
+      return rows.map((r) => ({
+        status: r.status,
+        lastInteractionAt: r.lastInteractionAt.getTime(),
+        title: r.problem.title,
+        difficulty: r.problem.difficulty,
+        slug: r.problem.leetcodeId,
+        url: r.problem.leetcodeUrl,
+        finalTags: r.problem.finalTags
+      }))
+    })
+    res.json({ rows: result })
+  } catch (err) {
+    console.error('getSolvedProblems error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
+// Scoped to the caller's own userId only -- never accepts a target user, so there's no
+// way to wipe anyone else's history.
+export const clearSolvedProblems = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const result = await withPrisma((prisma) => prisma.solvedProblem.deleteMany({ where: { userId } }))
+    res.json({ ok: true, deleted: result.count })
+  } catch (err) {
+    console.error('clearSolvedProblems error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
 export const getDebugResults = async (req, res) => {
   // Debug-only endpoint: never available in production, no env-var override.
   // A stray DEBUG_RESULTS=true in a prod environment would otherwise reopen this.

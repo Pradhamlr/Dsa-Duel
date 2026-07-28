@@ -1,7 +1,7 @@
 import { withPrisma } from '../utils/database.js';
 import { getLanguageId, submitToJudge0 } from '../services/judgeClient.js';
 import { generateJavaProgram, parseJavaOutput, checkSignatureSupported } from '../utils/javaDriverGenerator.js';
-import { markResultSolved, buildContestResponse } from './contestController.js';
+import { markResultSolved, recordProblemInteraction, buildContestResponse } from './contestController.js';
 import { broadcastContestUpdate } from '../services/contestEvents.js';
 
 // Java only for now -- C++'s driver generator is a follow-up, not yet built.
@@ -80,9 +80,14 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
       });
 
       if (allPassed) {
-        await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'judge' });
+        await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'judge', slug: problemSnapshot.slug });
         return { verdict, testResults, contest: await buildContestResponse(prisma, contest) };
       }
+
+      // A real Submit that didn't pass still counts as engaging with this problem --
+      // Run doesn't reach here at all (isSubmit only), matching the existing
+      // Submission-only-on-Submit precedent.
+      await recordProblemInteraction(prisma, { userId, slug: problemSnapshot.slug, status: 'attempted' });
     }
 
     return { verdict, testResults };
