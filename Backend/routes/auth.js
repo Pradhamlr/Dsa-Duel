@@ -2,13 +2,13 @@ import express from 'express';
 import { register, login, getMe, forgotPassword, verifyOTP, resetPassword, refreshToken, verifyEmail, logout, startGoogleOAuth, googleOAuthCallback } from '../controllers/authController.js';
 import { getSessions, revokeSession, revokeOtherSessions } from '../controllers/sessionController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
-import { loginRateLimit, forgotPasswordRateLimit, otpRateLimit } from '../middleware/rateLimitMiddleware.js';
+import { loginRateLimit, registerRateLimit, forgotPasswordRateLimit, otpRateLimit } from '../middleware/rateLimitMiddleware.js';
 import validateDto from '../middleware/validateDto.js';
 import { emailDto, loginDto, otpDto, registerDto, resetPasswordDto } from '../dtos/authDtos.js';
 
 const router = express.Router();
 
-router.post('/register', validateDto(registerDto), register);
+router.post('/register', registerRateLimit, validateDto(registerDto), register);
 router.post('/login', loginRateLimit, validateDto(loginDto), login);
 router.get('/me', authMiddleware, getMe);
 router.post('/forgot-password', forgotPasswordRateLimit, validateDto(emailDto), forgotPassword);

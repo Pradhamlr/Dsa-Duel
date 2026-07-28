@@ -60,17 +60,8 @@ export const buildContestResponse = async (prisma, contest) => {
 
 export const createContest = async (req, res) => {
   try {
-    const { numProblems = 5, difficulty = 'Mixed', duration, selectedTopics = [] } = req.body || {};
-    const problemCount = Number(numProblems);
-
-    // Validate input
-    if (![3, 4, 5].includes(problemCount)) {
-      return res.status(400).json({ error: 'Problem count must be 3, 4, or 5' });
-    }
-
-    if (!['Easy', 'Medium', 'Mixed'].includes(difficulty)) {
-      return res.status(400).json({ error: 'Difficulty must be Easy, Medium, or Mixed' });
-    }
+    const { numProblems, difficulty, duration, selectedTopics } = req.validatedBody;
+    const problemCount = numProblems;
 
     const filters = { difficulty, selectedTopics };
 
@@ -124,7 +115,7 @@ export const createContest = async (req, res) => {
       }));
 
       const id = randomUUID().slice(0, 8);
-      const durationSeconds = duration && Number.isFinite(Number(duration)) ? Number(duration) : 90 * 60;
+      const durationSeconds = duration !== undefined ? duration : 90 * 60;
 
       const creatorId = req.user.userId;
       const creatorName = req.user.username || req.user.email?.split('@')[0];
@@ -223,14 +214,14 @@ export const startContest = async (req, res) => {
       if (!contest) return { error: 'not found', status: 404 }
       if (contest.startTime) return { error: 'already started', status: 400 }
 
-      const { duration } = req.body || {}
+      const { duration } = req.validatedBody
 
       if (contest.creatorId && contest.creatorId !== req.user.userId) {
         return { error: 'only creator can start', status: 403 }
       }
 
       const update = { startTime: new Date() }
-      if (duration && Number.isFinite(duration)) update.durationSeconds = Number(duration)
+      if (duration !== undefined) update.durationSeconds = duration
 
       const updated = await prisma.contest.update({ where: { id }, data: update })
       return {
@@ -270,7 +261,7 @@ export const markProblem = async (req, res) => {
   try {
     const result = await withPrisma(async (prisma) => {
       const id = req.params.id
-      const { problemIndex, solved } = req.body
+      const { problemIndex, solved } = req.validatedBody
       const userId = req.user.userId
       const displayName = req.user.username || req.user.email?.split('@')[0]
 
@@ -280,9 +271,9 @@ export const markProblem = async (req, res) => {
 
       if (solved) {
         await upsertUserDisplayName(prisma, userId, displayName)
-        await markResultSolved(prisma, { contestId: id, userId, problemIndex: Number(problemIndex), verifiedVia: 'manual' })
+        await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'manual' })
       } else {
-        await prisma.result.deleteMany({ where: { contestId: id, userId, problemIndex: Number(problemIndex) } })
+        await prisma.result.deleteMany({ where: { contestId: id, userId, problemIndex } })
       }
 
       return { ok: true, contest: await buildContestResponse(prisma, contest) }
@@ -383,14 +374,14 @@ export const verifyLeetCodeSubmission = async (req, res) => {
   try {
     const result = await withPrisma(async (prisma) => {
       const id = req.params.id
-      const { problemIndex } = req.body
+      const { problemIndex } = req.validatedBody
       const userId = req.user.userId
 
       const contest = await prisma.contest.findUnique({ where: { id } })
       if (!contest) return { error: 'not found', status: 404 }
       if (!contest.startTime) return { error: 'contest not started', status: 400 }
 
-      const problem = contest.problems[Number(problemIndex)]
+      const problem = contest.problems[problemIndex]
       if (!problem) return { error: 'invalid problem index', status: 400 }
 
       const user = await prisma.user.findUnique({ where: { id: userId } })
@@ -416,7 +407,7 @@ export const verifyLeetCodeSubmission = async (req, res) => {
         }
       }
 
-      await markResultSolved(prisma, { contestId: id, userId, problemIndex: Number(problemIndex), verifiedVia: 'leetcode' })
+      await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'leetcode' })
 
       return { verified: true, contest: await buildContestResponse(prisma, contest) }
     })

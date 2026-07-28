@@ -11,15 +11,14 @@ const DRIVERS = {
 
 const runOrSubmit = async (req, res, { isSubmit }) => {
   const id = req.params.id;
-  const { problemIndex, language, code } = req.body || {};
+  const { problemIndex, language, code } = req.validatedBody;
   const userId = req.user.userId;
 
+  // Schema validity (language is "java" or "cpp") and "the driver is actually built yet"
+  // are two different checks -- cpp passes the DTO but has no driver implementation.
   const driver = DRIVERS[language];
   if (!driver) {
     return res.status(400).json({ error: `Language "${language}" isn't supported by the judge yet`, code: 'LANGUAGE_NOT_SUPPORTED' });
-  }
-  if (typeof code !== 'string' || code.trim().length === 0) {
-    return res.status(400).json({ error: 'code is required' });
   }
 
   const result = await withPrisma(async (prisma) => {
@@ -27,7 +26,7 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
     if (!contest) return { error: 'not found', status: 404 };
     if (!contest.startTime) return { error: 'contest not started', status: 400 };
 
-    const problemSnapshot = contest.problems[Number(problemIndex)];
+    const problemSnapshot = contest.problems[problemIndex];
     if (!problemSnapshot) return { error: 'invalid problem index', status: 400 };
 
     const problem = await prisma.problem.findUnique({ where: { leetcodeId: problemSnapshot.slug } });
@@ -72,7 +71,7 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
         data: {
           contestId: id,
           userId,
-          problemIndex: Number(problemIndex),
+          problemIndex,
           language,
           code,
           verdict,
@@ -81,7 +80,7 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
       });
 
       if (allPassed) {
-        await markResultSolved(prisma, { contestId: id, userId, problemIndex: Number(problemIndex), verifiedVia: 'judge' });
+        await markResultSolved(prisma, { contestId: id, userId, problemIndex, verifiedVia: 'judge' });
         return { verdict, testResults, contest: await buildContestResponse(prisma, contest) };
       }
     }

@@ -64,6 +64,14 @@ export const loginRateLimit = combineRateLimits(
   perIdentifier(15 * 60 * 1000, 10)  // 10 attempts per 15 minutes per account, regardless of source IP
 );
 
+// Every other auth-sensitive route has a rate limit; registration didn't. Per-IP stops
+// one source mass-creating accounts, per-identifier stops repeated verification-email
+// spam to the same address.
+export const registerRateLimit = combineRateLimits(
+  perIp(60 * 60 * 1000, 5),
+  perIdentifier(60 * 60 * 1000, 3)
+);
+
 export const forgotPasswordRateLimit = combineRateLimits(
   perIp(60 * 60 * 1000, 3),
   perIdentifier(60 * 60 * 1000, 3)

@@ -52,3 +52,16 @@ export function broadcastRoster(contestId) {
   const roster = rosterFor(contestId);
   for (const { res } of clients) writeEvent(res, 'roster', roster);
 }
+
+// SSE connections are held open indefinitely by design -- server.close() alone would
+// hang waiting for them to end naturally, which never happens on their own. Called from
+// server.js's graceful-shutdown handler so a redeploy ends every open stream cleanly
+// instead of the process just being killed out from under them.
+export function closeAllConnections() {
+  for (const clients of contestClients.values()) {
+    for (const { res } of clients) {
+      try { res.end(); } catch (e) { /* already closed */ }
+    }
+  }
+  contestClients.clear();
+}
