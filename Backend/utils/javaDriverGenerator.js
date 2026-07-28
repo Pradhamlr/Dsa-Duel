@@ -7,6 +7,14 @@
 // arrays alike -- much simpler and more robust than generating bespoke print code per
 // type/dimension combination. Only the INPUT side needs type-specific code, since Java
 // requires explicit typed variable declarations for method arguments.
+//
+// The type-tree parsing (parseType/isTypeSupported/checkSignatureSupported) lives in
+// ./typeTree.js -- it's LeetCode's own type-string grammar, nothing Java-specific about
+// it, and this driver is no longer the only consumer (see cppDriverGenerator.js).
+
+import { parseType, isTypeSupported, checkSignatureSupported } from './typeTree.js';
+
+export { isTypeSupported, checkSignatureSupported };
 
 const PRIMITIVE_JAVA_TYPES = {
   integer: 'int',
@@ -27,48 +35,6 @@ const BOXED_JAVA_TYPES = {
   string: 'String',
   character: 'Character'
 };
-
-// Recursive-descent parser for LeetCode's type strings into a small type-tree, e.g.:
-//   "integer"            -> { kind: 'scalar', base: 'integer' }
-//   "integer[][]"        -> { kind: 'array', of: { kind: 'array', of: {scalar integer} } }
-//   "list<list<integer>>"-> { kind: 'list', of: { kind: 'list', of: {scalar integer} } }
-// Anything else (TreeNode, ListNode, custom classes, ...) fails to parse and returns
-// null, same as before -- those remain correctly unsupported, not silently mishandled.
-function parseType(leetcodeType) {
-  if (typeof leetcodeType !== 'string') return null;
-  const input = leetcodeType.trim().replace(/\s+/g, '');
-  let pos = 0;
-
-  function parseOne() {
-    if (input.slice(pos, pos + 5).toLowerCase() === 'list<') {
-      pos += 5;
-      const inner = parseOne();
-      if (!inner || input[pos] !== '>') return null;
-      pos += 1;
-      return { kind: 'list', of: inner };
-    }
-
-    const match = /^[a-zA-Z]+/.exec(input.slice(pos));
-    if (!match) return null;
-    const base = match[0].toLowerCase();
-    if (!PRIMITIVE_JAVA_TYPES[base]) return null;
-    pos += match[0].length;
-
-    let node = { kind: 'scalar', base };
-    while (input.slice(pos, pos + 2) === '[]') {
-      pos += 2;
-      node = { kind: 'array', of: node };
-    }
-    return node;
-  }
-
-  const parsed = parseOne();
-  return parsed && pos === input.length ? parsed : null;
-}
-
-export function isTypeSupported(leetcodeType) {
-  return parseType(leetcodeType) !== null;
-}
 
 function javaTypeForNode(node) {
   if (node.kind === 'scalar') return PRIMITIVE_JAVA_TYPES[node.base];
@@ -165,24 +131,6 @@ const JSON_HELPER = `
     return String.valueOf(o);
   }
 `;
-
-// Checks every param + the return type against the supported type set. Problems whose
-// signature includes something we don't handle (TreeNode, ListNode, List<T>, custom
-// classes) should be rejected clearly up front, not attempted and left to fail with a
-// confusing compile error deep inside Judge0.
-export function checkSignatureSupported(functionSignature) {
-  const params = functionSignature?.params || [];
-  const unsupported = [];
-
-  for (const p of params) {
-    if (!isTypeSupported(p.type)) unsupported.push(p.type);
-  }
-  if (!isTypeSupported(functionSignature?.return?.type)) {
-    unsupported.push(functionSignature?.return?.type);
-  }
-
-  return { supported: unsupported.length === 0, unsupportedTypes: [...new Set(unsupported)] };
-}
 
 // Combines every test case into ONE Java program / ONE Judge0 submission (avoids
 // recompiling the same class per test case). Each test case is wrapped in its own
