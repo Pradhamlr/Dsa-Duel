@@ -21,6 +21,12 @@ function rosterFor(contestId) {
   return Array.from(seen.values());
 }
 
+// Snapshot of who's currently connected, for Phase 4b's deferred problem
+// selection at Start -- distinct userIds only, same dedup as the roster panel.
+export function getRosterUserIds(contestId) {
+  return rosterFor(contestId).map((r) => r.userId);
+}
+
 export function registerClient(contestId, userId, name, res) {
   if (!contestClients.has(contestId)) contestClients.set(contestId, new Set());
   const client = { res, userId, name };

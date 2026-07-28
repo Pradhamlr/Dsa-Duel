@@ -117,7 +117,12 @@ export default function Contest(){
         const res = await fetch(`${API}/contest/${id}`)
         if (!res.ok) throw new Error('Failed to load contest')
         const data = await res.json()
-        setContest(data)
+        // Only apply this if nothing newer has arrived yet. StrictMode's dev-mode
+        // double-invoke fires this effect twice with no fetch cancellation, and even
+        // outside that, this GET can simply be slow -- if it resolves after the SSE
+        // 'contest' push or a manual start/mark refetch already set real state, it must
+        // not silently revert the UI back to a stale pre-update snapshot.
+        setContest(prev => prev ? prev : data)
       } catch (err) {
         console.error('load error', err)
         window.dispatchEvent(new CustomEvent('show-toast',{detail:{message: 'Failed to load contest', type:'error'}}))
@@ -577,6 +582,14 @@ export default function Contest(){
                 </h2>
               </div>
 
+              {!contest.startTime && contest.problems.length === 0 ? (
+                <div className="bg-gray-900 rounded-2xl p-8 shadow-sm border border-white/10 text-center animate-slideIn">
+                  <div className="text-lg font-semibold text-gray-100 mb-2">Problems will be revealed when the contest starts</div>
+                  <div className="text-sm text-gray-500">
+                    Selection happens at Start, not now -- it can steer around problems anyone currently in the room has recently solved or attempted.
+                  </div>
+                </div>
+              ) : (
               <div className="grid gap-4">
                 {contest.problems.map((p, i) => {
                   const solved = contest.results && contest.results[userId] && contest.results[userId].solved && contest.results[userId].solved[i]
@@ -664,6 +677,7 @@ export default function Contest(){
                   )
                 })}
               </div>
+              )}
             </div>
         </div>
       </div>

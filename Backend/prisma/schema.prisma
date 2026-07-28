@@ -63,7 +63,12 @@ model Contest {
   creator         User?    @relation("CreatorContests", fields: [creatorId], references: [id])
   numProblems     Int
   difficulty      String
-  problems        Json
+  selectedTopics  String[] @default([])
+  pool            String?
+  // Nullable: settings are stored at create time, but the actual problem set isn't
+  // chosen until startContest runs (Phase 4b -- deferred selection using the SSE
+  // roster's SolvedProblem history). Empty/null before startTime is set.
+  problems        Json?
   createdAt       DateTime @default(now())
   startTime       DateTime?
   durationSeconds Int

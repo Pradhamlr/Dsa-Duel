@@ -2,7 +2,8 @@ import { randomUUID } from 'crypto';
 import { withPrisma } from '../utils/database.js';
 import { ensureProblemsAvailable } from '../utils/problemIngestion.js';
 import { fetchRecentAcSubmissions } from '../utils/leetcode.js';
-import { registerClient, unregisterClient, broadcastContestUpdate } from '../services/contestEvents.js';
+import { registerClient, unregisterClient, broadcastContestUpdate, getRosterUserIds } from '../services/contestEvents.js';
+import { selectWithTieredFallback } from '../utils/contestProblemSelection.js';
 
 const upsertUserDisplayName = async (prisma, userId, displayName) => {
   try {
@@ -72,13 +73,28 @@ export const buildContestResponse = async (prisma, contest) => {
     }
   }
 
+  // creatorId/creatorName were missing here (only the one-time GET /contest/:id load
+  // included them) -- so the moment any live SSE 'contest' event arrived, it silently
+  // wiped creatorId from client state, making the "only creator can start" check
+  // (falsy once creatorId is undefined) show the Start Contest button to everyone, not
+  // just the creator. The server-side check was never affected (it reads the DB row
+  // directly), but the client display was wrong. Fixed by including it here too, same
+  // as getContest already does.
+  let creatorName = null;
+  if (contest.creatorId) {
+    const creator = await prisma.user.findUnique({ where: { id: contest.creatorId } });
+    creatorName = creator ? creator.name : null;
+  }
+
   return {
     id: contest.id,
-    problems: contest.problems,
+    problems: contest.problems || [],
     createdAt: contest.createdAt ? contest.createdAt.getTime() : Date.now(),
     startTime: contest.startTime ? contest.startTime.getTime() : null,
     duration: contest.durationSeconds,
-    results
+    results,
+    creatorId: contest.creatorId || null,
+    creatorName
   };
 };
 
@@ -89,7 +105,9 @@ export const createContest = async (req, res) => {
 
     const filters = { difficulty, selectedTopics, pool };
 
-    // Ensure we have enough problems in database
+    // Fast-fail guard: confirms these settings CAN be satisfied at all (ignoring any
+    // roster-based exclusion applied later at Start, which only ever narrows further)
+    // before creating a contest whose filters can never produce enough problems.
     try {
       await ensureProblemsAvailable(filters, problemCount);
     } catch (error) {
@@ -98,83 +116,30 @@ export const createContest = async (req, res) => {
     }
 
     const result = await withPrisma(async (prisma) => {
-      // Query Problem table for matching problems
-      const where = {};
-      
-      if (difficulty !== 'Mixed') {
-        where.difficulty = difficulty;
-      }
-      
-      if (selectedTopics.length > 0) {
-        where.finalTags = {
-          hasSome: selectedTopics
-        };
-      }
-
-      if (pool) {
-        where.pools = { has: pool };
-      }
-
-      console.log('Querying problems with filters:', { difficulty, selectedTopics, pool, where });
-      const problems = await prisma.problem.findMany({ where });
-      console.log(`Found ${problems.length} problems in database`);
-
-      if (problems.length < problemCount) {
-        console.error(`Not enough problems: found ${problems.length}, need ${problemCount}`);
-        return { error: 'Not enough problems available after ingestion', status: 500 };
-      }
-
-      // Randomly shuffle and select required count
-      const shuffled = problems.sort(() => Math.random() - 0.5);
-      const selected = shuffled.slice(0, problemCount);
-      console.log('Selected problems:', selected.map(p => p.title));
-
-      // Convert to contest format. testCases is deliberately excluded here -- it's the
-      // judge's answer key, and this snapshot is shipped straight to the client, so it
-      // must stay server-side only (fetched fresh at submit-time in Phase 4).
-      const chosen = selected.map(p => ({
-        title: p.title,
-        slug: p.leetcodeId,
-        difficulty: p.difficulty,
-        url: p.leetcodeUrl,
-        finalTags: p.finalTags,
-        judgeSupported: p.judgeSupported,
-        ...(p.judgeSupported ? { codeSnippets: p.codeSnippets } : {})
-      }));
-
       const id = randomUUID().slice(0, 8);
       const durationSeconds = duration !== undefined ? duration : 90 * 60;
 
       const creatorId = req.user.userId;
       const creatorName = req.user.username || req.user.email?.split('@')[0];
-      
-      try {
-        await prisma.user.upsert({ 
-          where: { id: creatorId }, 
-          update: { name: creatorName || undefined }, 
-          create: { id: creatorId, name: creatorName || undefined } 
-        });
-      } catch (e) {
-        console.error('User upsert error:', e);
-      }
+      await upsertUserDisplayName(prisma, creatorId, creatorName);
 
+      // Problems aren't chosen here -- Phase 4b defers selection to startContest, which
+      // can exclude what anyone currently connected in the SSE roster has recently
+      // solved/attempted. See utils/contestProblemSelection.js.
       const created = await prisma.contest.create({
         data: {
           id,
           numProblems: problemCount,
           difficulty,
-          problems: chosen,
+          selectedTopics,
+          pool,
           durationSeconds,
           creatorId
         }
       });
-      
-      return { contestId: created.id, problems: chosen };
-    });
 
-    if (result.error) {
-      return res.status(result.status).json({ error: result.error });
-    }
+      return { contestId: created.id };
+    });
 
     res.json(result);
   } catch (err) {
@@ -216,7 +181,7 @@ export const getContest = async (req, res) => {
 
       return {
         id: c.id,
-        problems: c.problems,
+        problems: c.problems || [],
         createdAt: c.createdAt ? c.createdAt.getTime() : Date.now(),
         startTime: c.startTime ? c.startTime.getTime() : null,
         duration: c.durationSeconds,
@@ -248,7 +213,24 @@ export const startContest = async (req, res) => {
         return { error: 'only creator can start', status: 403 }
       }
 
-      const update = { startTime: new Date() }
+      // Deferred problem selection (Phase 4b): pick problems now, not at create time, so
+      // we can try to avoid handing anyone currently in the room a problem they've
+      // recently solved/attempted. getRosterUserIds reads the same in-memory SSE
+      // connection registry the live "Participants" panel is built from.
+      const rosterUserIds = getRosterUserIds(id)
+      const chosen = await selectWithTieredFallback(prisma, {
+        difficulty: contest.difficulty,
+        selectedTopics: contest.selectedTopics,
+        pool: contest.pool,
+        problemCount: contest.numProblems,
+        rosterUserIds
+      })
+
+      if (!chosen) {
+        return { error: 'Not enough problems available to start this contest', status: 500 }
+      }
+
+      const update = { startTime: new Date(), problems: chosen }
       if (duration !== undefined) update.durationSeconds = duration
 
       const updated = await prisma.contest.update({ where: { id }, data: update })
@@ -370,6 +352,7 @@ export const getProblemDetails = async (req, res) => {
 
       const contest = await prisma.contest.findUnique({ where: { id } })
       if (!contest) return { error: 'not found', status: 404 }
+      if (!contest.startTime) return { error: 'contest not started', status: 400 }
 
       const snapshot = contest.problems[index]
       if (!snapshot) return { error: 'invalid problem index', status: 400 }
