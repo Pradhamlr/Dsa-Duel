@@ -151,6 +151,14 @@ export const updateProfile = async ({ name, leetcodeUsername }) => {
   return res.json()
 }
 
+// EventSource can't set custom headers, so the access token travels as a query param
+// instead (verified server-side by sseAuthMiddleware the same way the Authorization
+// header is elsewhere). Live contest updates + the connected-participants roster.
+export const getContestEventsUrl = (contestId) => {
+  const token = localStorage.getItem('duel_access_token')
+  return `${API}/contest/${contestId}/events?token=${encodeURIComponent(token || '')}`
+}
+
 // Full problem details (description + example test cases) for the LeetCode-style view.
 // Not auth-gated on the backend, but authFetch works fine unauthenticated too.
 export const getProblemDetails = async (contestId, problemIndex) => {

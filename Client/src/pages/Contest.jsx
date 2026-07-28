@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Timer from '../components/Timer'
 import CodeEditor from '../components/CodeEditor'
-import { authFetch, API, clearAuthSession, getStoredUserId, updateProfile, verifyLeetCodeSubmission } from '../utils/api'
+import { authFetch, API, clearAuthSession, getStoredUserId, updateProfile, verifyLeetCodeSubmission, getContestEventsUrl } from '../utils/api'
 
 const DIFFICULTY_STYLES = {
   Easy: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -66,13 +66,15 @@ export default function Contest(){
   const [loading, setLoading] = useState(true)
   const [ended, setEnded] = useState(false)
   const [durationOverrideMin, setDurationOverrideMin] = useState('')
-  const [selectedSort, setSelectedSort] = useState('solved-desc')
   const [displayName, setDisplayName] = useState(() => {
     try { return localStorage.getItem('duel_name') || '' } catch { return '' }
   })
   const [leetcodeUsername, setLeetcodeUsername] = useState('')
   const [verifyingIndex, setVerifyingIndex] = useState(null)
   const [editorProblemIndex, setEditorProblemIndex] = useState(null)
+  const [roster, setRoster] = useState([])
+  const isFirstContestEventRef = useRef(true)
+  const prevStartTimeRef = useRef(null)
   const navigate = useNavigate()
 
   // Verify user exists on mount
@@ -126,33 +128,30 @@ export default function Contest(){
     load()
   },[id])
 
-  // Poll status every 3s for participants so they see when the creator starts the contest
+  // Live contest state (solves, start time, who's watching) over Server-Sent Events --
+  // replaces polling entirely. Opening this connection IS the presence signal: the
+  // server registers this user into the contest's roster the moment it connects, and
+  // removes them on disconnect, so there's no separate join call to make.
   useEffect(()=>{
-    if (!contest) return
-    // if contest already started, nothing to do
-    if (contest.startTime) return
-    let cancelled = false
-    const interval = setInterval(async ()=>{
-      try {
-        const res = await fetch(`${API}/contest/${id}/status`)
-        if (!res.ok) return
-        const s = await res.json()
-        if (s && s.startTime) {
-          // fetch full contest and update
-          const r = await fetch(`${API}/contest/${id}`)
-          if (!r.ok) return
-          const updated = await r.json()
-          if (!cancelled) {
-            setContest(updated)
-            window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest started', type:'info'}}))
-          }
-        }
-      } catch (e) {
-        // ignore network errors during polling
+    if (!id) return
+    const es = new EventSource(getContestEventsUrl(id))
+
+    es.addEventListener('contest', (event) => {
+      const data = JSON.parse(event.data)
+      if (!isFirstContestEventRef.current && !prevStartTimeRef.current && data.startTime) {
+        window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest started', type:'info'}}))
       }
-    }, 3000)
-    return ()=>{ cancelled = true; clearInterval(interval) }
-  }, [contest, id])
+      isFirstContestEventRef.current = false
+      prevStartTimeRef.current = data.startTime
+      setContest(data)
+    })
+
+    es.addEventListener('roster', (event) => {
+      setRoster(JSON.parse(event.data))
+    })
+
+    return () => es.close()
+  }, [id])
 
   async function startWithBody(body){
     try {
@@ -247,6 +246,27 @@ export default function Contest(){
     window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}}))
   }
 
+  function getStandingsRows(){
+    if (!contest) return []
+    const rows = []
+    const results = contest.results || {}
+    for (const uid of Object.keys(results)){
+      const solvedMap = results[uid].solved || {}
+      const solvedCount = Object.keys(solvedMap).filter(k => solvedMap[k]).length
+      rows.push({ userId: uid, name: results[uid].name || null, solvedCount })
+    }
+    rows.sort((a,b)=> b.solvedCount - a.solvedCount || (a.name||a.userId).localeCompare(b.name||b.userId))
+    return rows
+  }
+
+  async function copyResults(){
+    const rows = getStandingsRows()
+    const total = contest.problems?.length || 0
+    const lines = [`Contest ${id} -- Results`, ...rows.map((r, i) => `${i+1}. ${r.name || r.userId} -- ${r.solvedCount}/${total}`)]
+    await navigator.clipboard.writeText(lines.join('\n'))
+    window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Results copied!', type:'success'}}))
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-indigo-950/20 to-purple-950/10">
@@ -276,11 +296,6 @@ export default function Contest(){
     )
   }
 
-  // helper: is contest over according to server data
-  const nowMs = Date.now()
-  const contestEndMs = contest.startTime ? (contest.startTime + contest.duration * 1000) : null
-  const isOver = ended || (contestEndMs !== null && nowMs >= contestEndMs)
-
   // derive problem types using simple heuristics on title/slug
   function getProblemType(p) {
     if (p.finalTags && p.finalTags.length > 0) {
@@ -291,80 +306,71 @@ export default function Contest(){
 
   const problemTags = contest.problems.map(getProblemType)
 
-  function renderLeaderboard(){
-    const rows = []
-    const results = contest.results || {}
-    for (const uid of Object.keys(results)){
-      const solvedMap = results[uid].solved || {}
-      const solvedCount = Object.keys(solvedMap).filter(k => solvedMap[k]).length
-      const name = results[uid].name || null
-      rows.push({ userId: uid, name, solvedCount })
-    }
-
-    rows.sort((a,b)=> b.solvedCount - a.solvedCount)
-    if (selectedSort === 'name-asc') rows.sort((a,b)=> (a.name || a.userId).localeCompare(b.name || b.userId))
-    if (selectedSort === 'solved-asc') rows.sort((a,b)=> a.solvedCount - b.solvedCount)
-    if (selectedSort === 'solved-desc') rows.sort((a,b)=> b.solvedCount - a.solvedCount || (a.name||a.userId).localeCompare(b.name||b.userId))
-
-    if (rows.length === 0) {
-      return (
-        <div className="bg-gray-900 rounded-2xl p-12 shadow-sm border border-white/10 text-center">
-          <div className="text-lg font-semibold text-gray-100 mb-2">No results yet</div>
-          <div className="text-sm text-gray-500">Results will appear here once participants start solving problems</div>
-        </div>
-      )
-    }
+  // Solve-count standings, kept fresh via the SSE subscription above and shown for the
+  // full lifetime of the contest page -- during an active contest and after it ends,
+  // since a separate post-contest "Final Results" view would just be the same data.
+  function renderLiveStandings(){
+    const rows = getStandingsRows()
+    if (rows.length === 0) return null
 
     return (
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-100">Final Results</h2>
-          <select
-            value={selectedSort}
-            onChange={e=>setSelectedSort(e.target.value)}
-            className="text-sm border border-gray-700 rounded-lg px-3 py-1.5 bg-gray-800 text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400"
-          >
-            <option value="solved-desc">Most Solved</option>
-            <option value="solved-asc">Least Solved</option>
-            <option value="name-asc">Name A-Z</option>
-          </select>
-        </div>
-
-        <div className="bg-gray-900 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
-          <div style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}} className="gap-4 px-5 py-3 font-semibold text-xs uppercase tracking-wide text-gray-600 border-b border-white/10">
-            <div>Rank</div>
-            <div>Participant</div>
-            <div className="text-right">Solved</div>
-          </div>
-
-          <div className="divide-y divide-white/5">
-            {rows.map((r, idx) => {
-              const isCurrentUser = r.userId === userId
-
-              return (
-                <div
-                  key={r.userId}
-                  style={{display: 'grid', gridTemplateColumns: '60px 1fr 80px'}}
-                  className={`gap-4 px-5 py-4 items-center ${isCurrentUser ? 'bg-indigo-500/10' : ''}`}
-                >
-                  <div className="font-semibold text-gray-300">
-                    #{idx+1}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-medium text-gray-100 flex items-center gap-2 truncate">
-                      {r.name || r.userId}
-                      {isCurrentUser && (
-                        <span className="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full flex-shrink-0">You</span>
-                      )}
-                    </div>
-                    {r.name && <div className="text-xs text-gray-600 truncate">{r.userId}</div>}
-                  </div>
-                  <div className="text-right font-semibold text-gray-100">
-                    {r.solvedCount} / {contest.problems?.length || 0}
-                  </div>
+      <div className="bg-gray-900 rounded-2xl p-6 shadow-sm border border-white/10 mb-6 animate-slideIn" style={{animationDelay: '0.08s'}}>
+        <h2 className="text-sm font-semibold text-gray-100 mb-4">Live Standings</h2>
+        <div className="space-y-2">
+          {rows.map((r, idx) => {
+            const isCurrentUser = r.userId === userId
+            const isLeader = ended && idx === 0 && r.solvedCount > 0
+            return (
+              <div key={r.userId} className={`flex items-center justify-between px-4 py-2.5 rounded-xl transition-colors ${isLeader ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : isCurrentUser ? 'bg-indigo-500/10' : 'bg-gray-800/50'}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`text-xs font-semibold w-5 flex-shrink-0 ${isLeader ? 'text-amber-400' : 'text-gray-500'}`}>#{idx+1}</span>
+                  <span className="text-sm font-medium text-gray-200 truncate">{r.name || r.userId}{isCurrentUser ? ' (You)' : ''}</span>
                 </div>
-              )
-            })}
+                <span className="text-sm font-semibold text-gray-100 flex-shrink-0">{r.solvedCount} / {contest.problems?.length || 0}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // A deliberate "you're done" moment instead of the page just sitting there once the
+  // timer hits zero: names the winner (if anyone solved anything), and gives two clear
+  // next actions -- a shareable results summary and a one-click path to a rematch.
+  function renderContestEndedBanner(){
+    if (!ended) return null
+    const rows = getStandingsRows()
+    const leader = rows[0]
+    const hasWinner = leader && leader.solvedCount > 0
+
+    return (
+      <div className="rounded-2xl p-6 shadow-sm border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-purple-500/10 mb-6 animate-slideIn">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="text-lg font-semibold text-gray-100 mb-1">Contest Complete</div>
+            <div className="text-sm text-gray-400">
+              {hasWinner
+                ? <><span className="font-medium text-amber-400">{leader.name || leader.userId}</span> won with {leader.solvedCount} / {contest.problems?.length || 0} solved</>
+                : 'No one solved a problem this time -- worth a rematch?'}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={copyResults}
+              className="px-4 py-2 text-sm rounded-xl"
+              style={neutralBtnStyle}
+              {...neutralHoverProps}
+            >
+              Copy Results
+            </button>
+            <button
+              onClick={()=>navigate('/')}
+              className="px-4 py-2 rounded-xl text-sm"
+              style={primaryBtnStyle(false)}
+            >
+              Start a Rematch
+            </button>
           </div>
         </div>
       </div>
@@ -476,6 +482,43 @@ export default function Contest(){
             </div>
           </div>
 
+          {renderContestEndedBanner()}
+
+          {/* Live Participants Panel */}
+          <div className="bg-gray-900 rounded-2xl p-6 shadow-sm border border-white/10 mb-6 animate-slideIn" style={{animationDelay: '0.05s'}}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Live Now
+              </h2>
+              <span className="text-xs text-gray-500">{roster.length} watching</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {roster.length === 0 ? (
+                <div className="text-sm text-gray-500">Connecting...</div>
+              ) : (
+                roster.map((r) => {
+                  const isCurrentUser = r.userId === userId
+                  const label = r.name || r.userId
+                  return (
+                    <div
+                      key={r.userId}
+                      className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border text-sm ${isCurrentUser ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'bg-gray-800 border-gray-700 text-gray-300'}`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {label.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="truncate max-w-[140px]">{label}{isCurrentUser ? ' (You)' : ''}</span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
           {/* User Info Card */}
           <div className="bg-gray-900 rounded-2xl p-6 shadow-sm border border-white/10 mb-6 animate-slideIn" style={{animationDelay: '0.1s'}}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-5">
@@ -525,22 +568,9 @@ export default function Contest(){
             </div>
           </div>
 
-          {isOver ? (
-            <div className="animate-slideIn" style={{animationDelay: '0.2s'}}>
-              {renderLeaderboard()}
-              <div className="mt-6 text-center">
-                <button
-                  onClick={()=>navigate('/')}
-                  className="px-6 py-2.5 text-sm rounded-xl"
-                  style={neutralBtnStyle}
-                  {...neutralHoverProps}
-                >
-                  Back to Home
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
+          <div>
+              {renderLiveStandings()}
+
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-100">
                   Problems
@@ -625,7 +655,7 @@ export default function Contest(){
                             </>
                           ) : (
                             <div className="text-sm text-gray-500 italic">
-                              Contest not started
+                              {!contest.startTime ? 'Contest not started' : 'Contest ended'}
                             </div>
                           )}
                         </div>
@@ -635,7 +665,6 @@ export default function Contest(){
                 })}
               </div>
             </div>
-          )}
         </div>
       </div>
 

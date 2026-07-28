@@ -184,30 +184,6 @@ export default function Home(){
             SESSIONS
           </button>
           <button
-            onClick={()=>navigate('/leaderboard')}
-            style={{
-              backgroundColor: '#1e293b',
-              color: '#cbd5e1',
-              padding: '6px 12px',
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#293548'
-              e.target.style.borderColor = '#475569'
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = '#1e293b'
-              e.target.style.borderColor = '#334155'
-            }}
-          >
-            LEADERBOARD
-          </button>
-          <button
             onClick={async () => {
               await logout()
               window.location.reload()

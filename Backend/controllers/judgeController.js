@@ -2,6 +2,7 @@ import { withPrisma } from '../utils/database.js';
 import { getLanguageId, submitToJudge0 } from '../services/judgeClient.js';
 import { generateJavaProgram, parseJavaOutput, checkSignatureSupported } from '../utils/javaDriverGenerator.js';
 import { markResultSolved, buildContestResponse } from './contestController.js';
+import { broadcastContestUpdate } from '../services/contestEvents.js';
 
 // Java only for now -- C++'s driver generator is a follow-up, not yet built.
 const DRIVERS = {
@@ -89,6 +90,7 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
   });
 
   if (result.error) return res.status(result.status).json({ error: result.error, code: result.code });
+  if (result.contest) broadcastContestUpdate(id, result.contest);
   res.json(result);
 };
 

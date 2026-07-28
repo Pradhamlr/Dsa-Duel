@@ -35,34 +35,6 @@ export const updateUser = async (req, res) => {
   }
 };
 
-export const getLeaderboard = async (req, res) => {
-  try {
-    const result = await withPrisma(async (prisma) => {
-      const results = await prisma.result.findMany()
-      const userCounts = {}
-      
-      for (const result of results) {
-        userCounts[result.userId] = (userCounts[result.userId] || 0) + 1
-      }
-      
-      const userIds = Object.keys(userCounts)
-      const users = userIds.length ? await prisma.user.findMany({ where: { id: { in: userIds } } }) : []
-      const nameMap = users.reduce((acc,u)=>{ acc[u.id]=u.name||null; return acc }, {})
-      
-      const rows = Object.entries(userCounts)
-        .map(([userId, count]) => ({ userId, name: nameMap[userId]||null, solvedCount: count }))
-        .sort((a,b) => b.solvedCount - a.solvedCount)
-      
-      return { ok: true, rows }
-    })
-    
-    res.json(result)
-  } catch (err) {
-    console.error('leaderboard error', err)
-    res.status(500).json({ error: 'failed' })
-  }
-};
-
 export const getDebugResults = async (req, res) => {
   // Debug-only endpoint: never available in production, no env-var override.
   // A stray DEBUG_RESULTS=true in a prod environment would otherwise reopen this.

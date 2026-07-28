@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { withPrisma } from '../utils/database.js';
 import { ensureProblemsAvailable } from '../utils/problemIngestion.js';
 import { fetchRecentAcSubmissions } from '../utils/leetcode.js';
+import { registerClient, unregisterClient, broadcastContestUpdate } from '../services/contestEvents.js';
 
 const upsertUserDisplayName = async (prisma, userId, displayName) => {
   try {
@@ -28,9 +29,23 @@ export const markResultSolved = async (prisma, { contestId, userId, problemIndex
 export const buildContestResponse = async (prisma, contest) => {
   const rows = await prisma.result.findMany({ where: { contestId: contest.id } });
   const results = {};
+  const userIds = new Set();
   for (const r of rows) {
+    userIds.add(r.userId);
     results[r.userId] = results[r.userId] || { solved: {} };
     if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true;
+  }
+
+  // Without this, every live SSE-pushed update showed raw userIds in Live Standings
+  // (only the initial GET /contest/:id load enriched names) -- names would only
+  // "appear" once something happened to trigger that separate endpoint, which read as
+  // solved-count rows randomly switching from an ID to a name mid-contest.
+  if (userIds.size > 0) {
+    const users = await prisma.user.findMany({ where: { id: { in: Array.from(userIds) } } });
+    const nameMap = users.reduce((acc, u) => { acc[u.id] = u.name || null; return acc; }, {});
+    for (const uid of Object.keys(results)) {
+      results[uid].name = nameMap[uid] || null;
+    }
   }
 
   return {
@@ -218,10 +233,15 @@ export const startContest = async (req, res) => {
       if (duration && Number.isFinite(duration)) update.durationSeconds = Number(duration)
 
       const updated = await prisma.contest.update({ where: { id }, data: update })
-      return { startedAt: updated.startTime ? updated.startTime.getTime() : Date.now(), duration: updated.durationSeconds }
+      return {
+        startedAt: updated.startTime ? updated.startTime.getTime() : Date.now(),
+        duration: updated.durationSeconds,
+        contest: await buildContestResponse(prisma, updated)
+      }
     })
 
     if (result.error) return res.status(result.status).json({ error: result.error })
+    broadcastContestUpdate(req.params.id, result.contest)
     res.json(result)
   } catch (err) {
     console.error(err)
@@ -269,11 +289,50 @@ export const markProblem = async (req, res) => {
     })
 
     if (result.error) return res.status(result.status).json({ error: result.error })
+    broadcastContestUpdate(req.params.id, result.contest)
     res.json(result)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'failed to mark' })
   }
+};
+
+// Live contest updates over Server-Sent Events: pushes the full contest payload
+// whenever it changes (mark/verify/judge-accept/start) and a "who's currently watching"
+// roster derived purely from which SSE connections are open -- no separate join
+// endpoint needed, the connection itself IS the presence signal.
+export const contestEvents = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+  const displayName = req.user.username || req.user.email?.split('@')[0] || null;
+
+  const result = await withPrisma(async (prisma) => {
+    const contest = await prisma.contest.findUnique({ where: { id } });
+    if (!contest) return null;
+    return buildContestResponse(prisma, contest);
+  });
+
+  if (!result) return res.status(404).json({ error: 'not found' });
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.flushHeaders?.();
+
+  const client = registerClient(id, userId, displayName, res);
+  res.write(`event: contest\ndata: ${JSON.stringify(result)}\n\n`);
+
+  // Keeps intermediary proxies (and Render's own) from closing an idle-looking
+  // connection; ":"-prefixed lines are SSE comments, ignored by EventSource.
+  const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 20000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    unregisterClient(id, client);
+  });
 };
 
 // Full problem details for the LeetCode-style contest view: description HTML and
@@ -363,6 +422,7 @@ export const verifyLeetCodeSubmission = async (req, res) => {
     })
 
     if (result.error) return res.status(result.status).json({ error: result.error, code: result.code })
+    if (result.verified) broadcastContestUpdate(req.params.id, result.contest)
     res.json(result)
   } catch (err) {
     console.error(err)

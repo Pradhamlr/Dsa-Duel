@@ -1,13 +1,14 @@
 import express from 'express';
-import { createContest, getContest, startContest, getContestStatus, markProblem, verifyLeetCodeSubmission, getProblemDetails } from '../controllers/contestController.js';
+import { createContest, getContest, startContest, getContestStatus, markProblem, verifyLeetCodeSubmission, getProblemDetails, contestEvents } from '../controllers/contestController.js';
 import { runCode, submitCode } from '../controllers/judgeController.js';
-import authMiddleware from '../middleware/authMiddleware.js';
+import authMiddleware, { sseAuthMiddleware } from '../middleware/authMiddleware.js';
 import { verifyLeetCodeRateLimit, judgeRateLimit } from '../middleware/rateLimitMiddleware.js';
 
 const router = express.Router();
 
 router.post('/', authMiddleware, createContest);
 router.get('/:id', getContest);
+router.get('/:id/events', sseAuthMiddleware, contestEvents);
 router.get('/:id/problem/:index', getProblemDetails);
 router.post('/:id/start', authMiddleware, startContest);
 router.get('/:id/status', getContestStatus);
