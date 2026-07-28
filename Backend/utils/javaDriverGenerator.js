@@ -17,24 +17,74 @@ const PRIMITIVE_JAVA_TYPES = {
   character: 'char'
 };
 
-// "integer[][]" -> { base: 'integer', dims: 2 }
+// Java generics can't take a primitive as a type argument (List<int> is illegal --
+// List<Integer> is required), so list-of-scalar needs the boxed name instead.
+const BOXED_JAVA_TYPES = {
+  integer: 'Integer',
+  long: 'Long',
+  double: 'Double',
+  boolean: 'Boolean',
+  string: 'String',
+  character: 'Character'
+};
+
+// Recursive-descent parser for LeetCode's type strings into a small type-tree, e.g.:
+//   "integer"            -> { kind: 'scalar', base: 'integer' }
+//   "integer[][]"        -> { kind: 'array', of: { kind: 'array', of: {scalar integer} } }
+//   "list<list<integer>>"-> { kind: 'list', of: { kind: 'list', of: {scalar integer} } }
+// Anything else (TreeNode, ListNode, custom classes, ...) fails to parse and returns
+// null, same as before -- those remain correctly unsupported, not silently mishandled.
 function parseType(leetcodeType) {
   if (typeof leetcodeType !== 'string') return null;
-  const match = leetcodeType.trim().match(/^([a-zA-Z]+)((?:\[\])*)$/);
-  if (!match) return null;
-  const base = match[1].toLowerCase();
-  if (!PRIMITIVE_JAVA_TYPES[base]) return null;
-  return { base, dims: match[2].length / 2 };
+  const input = leetcodeType.trim().replace(/\s+/g, '');
+  let pos = 0;
+
+  function parseOne() {
+    if (input.slice(pos, pos + 5).toLowerCase() === 'list<') {
+      pos += 5;
+      const inner = parseOne();
+      if (!inner || input[pos] !== '>') return null;
+      pos += 1;
+      return { kind: 'list', of: inner };
+    }
+
+    const match = /^[a-zA-Z]+/.exec(input.slice(pos));
+    if (!match) return null;
+    const base = match[0].toLowerCase();
+    if (!PRIMITIVE_JAVA_TYPES[base]) return null;
+    pos += match[0].length;
+
+    let node = { kind: 'scalar', base };
+    while (input.slice(pos, pos + 2) === '[]') {
+      pos += 2;
+      node = { kind: 'array', of: node };
+    }
+    return node;
+  }
+
+  const parsed = parseOne();
+  return parsed && pos === input.length ? parsed : null;
 }
 
 export function isTypeSupported(leetcodeType) {
   return parseType(leetcodeType) !== null;
 }
 
+function javaTypeForNode(node) {
+  if (node.kind === 'scalar') return PRIMITIVE_JAVA_TYPES[node.base];
+  if (node.kind === 'array') return `${javaTypeForNode(node.of)}[]`;
+  return `List<${javaGenericArgFor(node.of)}>`;
+}
+
+// Same as javaTypeForNode but boxes a bare scalar type argument -- arrays and nested
+// Lists are already reference types, so those pass through javaTypeForNode unboxed.
+function javaGenericArgFor(node) {
+  return node.kind === 'scalar' ? BOXED_JAVA_TYPES[node.base] : javaTypeForNode(node);
+}
+
 function javaTypeFor(leetcodeType) {
   const parsed = parseType(leetcodeType);
-  if (!parsed) return null;
-  return PRIMITIVE_JAVA_TYPES[parsed.base] + '[]'.repeat(parsed.dims);
+  return parsed ? javaTypeForNode(parsed) : null;
 }
 
 function scalarLiteral(base, value) {
@@ -55,20 +105,32 @@ function scalarLiteral(base, value) {
   }
 }
 
-function arrayInitializer(base, dims, value) {
-  if (dims === 0) return scalarLiteral(base, value);
-  const inner = value.map((v) => arrayInitializer(base, dims - 1, v)).join(',');
-  return `{${inner}}`;
+// The {..} initializer body for an array node -- recurses through nested array
+// dimensions, bottoming out at plain element literals (matches Java array-literal
+// syntax, e.g. "new int[][]{{1,2},{3,4}}" has nested braces but only one "new" prefix).
+function bracesFor(node, value) {
+  const elementLiteral = (v) => (node.of.kind === 'array' ? bracesFor(node.of, v) : javaLiteralForNode(node.of, v));
+  return `{${value.map(elementLiteral).join(',')}}`;
+}
+
+// Builds the Java source for constructing a value of the given type-tree node, e.g.:
+//   scalar integer, 3          -> "3"
+//   array of integer, [1,2,3]  -> "new int[]{1,2,3}"
+//   list of integer, [1,2,3]   -> "new ArrayList<>(Arrays.asList(1, 2, 3))"
+function javaLiteralForNode(node, value) {
+  if (node.kind === 'scalar') return scalarLiteral(node.base, value);
+  if (node.kind === 'array') return `new ${javaTypeForNode(node)}${bracesFor(node, value)}`;
+  const elements = value.map((v) => javaLiteralForNode(node.of, v)).join(', ');
+  return `new ArrayList<>(Arrays.asList(${elements}))`;
 }
 
 // Builds the Java source for constructing a value of the given LeetCode type,
 // e.g. javaLiteral('integer[][]', [[1,2],[3,4]]) -> "new int[][]{{1,2},{3,4}}"
+// or   javaLiteral('list<integer>', [1,2,3])      -> "new ArrayList<>(Arrays.asList(1, 2, 3))"
 function javaLiteral(leetcodeType, value) {
   const parsed = parseType(leetcodeType);
   if (!parsed) throw new Error(`Unsupported type: ${leetcodeType}`);
-  if (parsed.dims === 0) return scalarLiteral(parsed.base, value);
-  const javaBase = PRIMITIVE_JAVA_TYPES[parsed.base];
-  return `new ${javaBase}${'[]'.repeat(parsed.dims)}${arrayInitializer(parsed.base, parsed.dims, value)}`;
+  return javaLiteralForNode(parsed, value);
 }
 
 const JSON_HELPER = `
@@ -79,6 +141,16 @@ const JSON_HELPER = `
     }
     if (o instanceof Character) {
       return "\\"" + o.toString().replace("\\\\", "\\\\\\\\").replace("\\"", "\\\\\\"") + "\\"";
+    }
+    if (o instanceof java.util.List) {
+      java.util.List<?> list = (java.util.List<?>) o;
+      StringBuilder lsb = new StringBuilder("[");
+      for (int i = 0; i < list.size(); i++) {
+        if (i > 0) lsb.append(",");
+        lsb.append(__judgeToJson(list.get(i)));
+      }
+      lsb.append("]");
+      return lsb.toString();
     }
     if (o.getClass().isArray()) {
       int len = java.lang.reflect.Array.getLength(o);
