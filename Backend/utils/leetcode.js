@@ -241,6 +241,84 @@ const fetchAllQuestions = async () => {
   return questions;
 };
 
+const FAVORITE_QUESTION_LIST_QUERY = `
+  query favoriteQuestionList($favoriteSlug: String!, $limit: Int, $skip: Int) {
+    favoriteQuestionList(favoriteSlug: $favoriteSlug, limit: $limit, skip: $skip) {
+      questions {
+        titleSlug
+        title
+      }
+      totalLength
+      hasMore
+    }
+  }
+`;
+
+const fetchFavoriteQuestionPageOnce = async (favoriteSlug, skip) => {
+  const response = await axios.post(
+    GRAPHQL_URL,
+    { query: FAVORITE_QUESTION_LIST_QUERY, variables: { favoriteSlug, skip, limit: PAGE_SIZE } },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Referer': 'https://leetcode.com',
+        'User-Agent': 'Mozilla/5.0'
+      },
+      timeout: 15000
+    }
+  );
+
+  const payload = response.data?.data?.favoriteQuestionList;
+  if (!payload) {
+    throw new Error('Unexpected LeetCode GraphQL response shape');
+  }
+  return payload;
+};
+
+const fetchFavoriteQuestionPage = async (favoriteSlug, skip) => {
+  let lastError;
+  for (let attempt = 1; attempt <= PAGE_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await fetchFavoriteQuestionPageOnce(favoriteSlug, skip);
+    } catch (error) {
+      lastError = error;
+      if (attempt < PAGE_RETRY_ATTEMPTS) {
+        await sleep(PAGE_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+  throw lastError;
+};
+
+// Fetches every problem in a public LeetCode "favorite" (LeetCode's internal name for
+// a shareable custom problem list, reached at leetcode.com/problem-list/<slug>/) --
+// used for NeetCode 150 (slug "plakya4j", verified live: 150 questions, 21,511 saves,
+// hasAccessToFavorite.hasAccess: true with no auth) and NeetCode 250 (slug "wltg7jn2",
+// 250 questions). Both confirmed genuinely public before relying on them -- neetcode.io's
+// own site gates the real NeetCode 150/250 content behind a paid account, but these
+// same lists are independently mirrored as public LeetCode favorites.
+export async function fetchFavoriteQuestionList(favoriteSlug) {
+  const firstPage = await fetchFavoriteQuestionPage(favoriteSlug, 0);
+  const questions = [...firstPage.questions];
+  const total = firstPage.totalLength;
+
+  for (let skip = PAGE_SIZE; skip < total; skip += PAGE_SIZE) {
+    await sleep(BATCH_DELAY_MS);
+    const page = await fetchFavoriteQuestionPage(favoriteSlug, skip);
+    questions.push(...page.questions);
+  }
+
+  // Verified live: this endpoint returns the FULL list on every page regardless of the
+  // skip/limit sent (150 total -> 300 raw results across 2 pages, 250 -> 750 across 3),
+  // not a real pagination bug in this code -- dedupe by slug rather than assume the
+  // cause, which self-corrects back to the true total either way.
+  const seen = new Map();
+  for (const q of questions) {
+    if (!seen.has(q.titleSlug)) seen.set(q.titleSlug, { slug: q.titleSlug, title: q.title });
+  }
+  return Array.from(seen.values());
+}
+
 let poolCache = { data: null, fetchedAt: 0 };
 
 export async function fetchLeetCodePool({ forceRefresh = false } = {}) {

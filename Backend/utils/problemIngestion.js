@@ -74,7 +74,7 @@ export async function ingestProblem(leetcodeProblem) {
 // synchronous classification.
 export async function ensureProblemsAvailable(filters, requiredCount) {
   return await withPrisma(async (prisma) => {
-    const { difficulty, selectedTopics } = filters;
+    const { difficulty, selectedTopics, pool } = filters;
 
     const where = {};
     if (difficulty !== 'Mixed') {
@@ -84,6 +84,9 @@ export async function ensureProblemsAvailable(filters, requiredCount) {
       where.finalTags = {
         hasSome: selectedTopics
       };
+    }
+    if (pool) {
+      where.pools = { has: pool };
     }
 
     const currentCount = await prisma.problem.count({ where });
@@ -95,9 +98,10 @@ export async function ensureProblemsAvailable(filters, requiredCount) {
     // The background sync job keeps the whole catalog synced on its own schedule, so
     // reaching here means this exact filter combination genuinely doesn't have enough
     // problems yet -- not that nobody has looked. A live scrape wouldn't find anything
-    // the sync job hasn't already seen.
+    // the sync job hasn't already seen. Pool membership is backfilled separately (see
+    // scripts/backfillNeetcodePools.js) and never grows via this path.
     throw new Error(
-      `Not enough problems available for difficulty="${difficulty}", topics="${selectedTopics?.join(', ') || 'any'}" (have ${currentCount}, need ${requiredCount})`
+      `Not enough problems available for difficulty="${difficulty}", topics="${selectedTopics?.join(', ') || 'any'}", pool="${pool || 'any'}" (have ${currentCount}, need ${requiredCount})`
     );
   });
 }

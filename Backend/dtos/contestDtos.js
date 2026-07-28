@@ -26,6 +26,13 @@ export const createContestDto = {
     default: [],
     label: 'Selected topics',
     validate: (value) => (Array.isArray(value) && value.every((v) => typeof v === 'string')) || 'Selected topics must be a list of strings'
+  },
+  pool: {
+    type: 'string',
+    required: false,
+    default: null,
+    label: 'Curated list',
+    validate: (value) => value === null || ['neetcode150', 'neetcode250'].includes(value) || 'Pool must be neetcode150 or neetcode250'
   }
 };
 

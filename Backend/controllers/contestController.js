@@ -84,10 +84,10 @@ export const buildContestResponse = async (prisma, contest) => {
 
 export const createContest = async (req, res) => {
   try {
-    const { numProblems, difficulty, duration, selectedTopics } = req.validatedBody;
+    const { numProblems, difficulty, duration, selectedTopics, pool } = req.validatedBody;
     const problemCount = numProblems;
 
-    const filters = { difficulty, selectedTopics };
+    const filters = { difficulty, selectedTopics, pool };
 
     // Ensure we have enough problems in database
     try {
@@ -111,7 +111,11 @@ export const createContest = async (req, res) => {
         };
       }
 
-      console.log('Querying problems with filters:', { difficulty, selectedTopics, where });
+      if (pool) {
+        where.pools = { has: pool };
+      }
+
+      console.log('Querying problems with filters:', { difficulty, selectedTopics, pool, where });
       const problems = await prisma.problem.findMany({ where });
       console.log(`Found ${problems.length} problems in database`);
 

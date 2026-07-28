@@ -27,6 +27,7 @@ export default function Home(){
   const [num, setNum] = useState(5)
   const [difficulty, setDifficulty] = useState('Mixed')
   const [topic, setTopic] = useState('All')
+  const [pool, setPool] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [durationMin, setDurationMin] = useState(90)
   const [loading, setLoading] = useState(false)
@@ -71,10 +72,11 @@ export default function Home(){
       const res = await authFetch('/create-contest', {
         method: 'POST',
         body: JSON.stringify({ 
-          numProblems: Number(num), 
-          difficulty, 
+          numProblems: Number(num),
+          difficulty,
           selectedTopics: topic !== 'All' ? [topic] : [],
-          duration: Number(durationMin) * 60 
+          pool,
+          duration: Number(durationMin) * 60
         })
       })
 
@@ -471,6 +473,39 @@ export default function Home(){
               <div className="bg-gray-900/90 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/10 animate-slideIn">
                 <p className="text-2xl font-medium text-gray-100 mb-8">Choose problem categories to focus on</p>
 
+                {/* Curated list (optional) -- combinable with, not a replacement for, the
+                    difficulty chosen in the previous step and the topic chosen below. */}
+                <div className="mb-8">
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Curated List (optional)</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: null, label: 'None' },
+                      { id: 'neetcode150', label: 'NeetCode 150' },
+                      { id: 'neetcode250', label: 'NeetCode 250' }
+                    ].map(p => (
+                      <button
+                        key={p.label}
+                        onClick={() => {
+                          setPool(p.id)
+                          if (p.id && topic === 'Database') setTopic('All')
+                        }}
+                        className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                          pool === p.id
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 scale-105'
+                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:shadow-md hover:-translate-y-0.5'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {pool && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Still combined with your difficulty choice from the previous step and any topic below.
+                    </p>
+                  )}
+                </div>
+
                 {/* Search and Actions */}
                 <div className="flex items-center gap-4 mb-8">
                   <div className="flex-1 relative">
@@ -488,6 +523,7 @@ export default function Home(){
                   <button
                     onClick={() => {
                       const topics = ['Array', 'LinkedList', 'Tree', 'Graph', 'String', 'DP', 'Stack', 'Queue', 'Matrix', 'Hashing', 'BinarySearch', 'TwoPointers', 'Math', 'Database', 'Other']
+                        .filter(t => !(pool && t === 'Database'))
                       const randomTopic = topics[Math.floor(Math.random() * topics.length)]
                       setTopic(randomTopic)
                     }}
@@ -517,9 +553,14 @@ export default function Home(){
                     { id: 'Other', label: 'Other', icon: '...', category: 'Specialized' }
                   ]
                   
-                  const filteredTopics = allTopics.filter(t => 
-                    t.label.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
+                  const filteredTopics = allTopics
+                    // NeetCode's lists are pure algorithm/DS problems -- no SQL-style
+                    // problems in either list, so Database + a pool always yields 0
+                    // results. Hide it instead of letting the user hit a dead end.
+                    .filter(t => !(pool && t.id === 'Database'))
+                    .filter(t =>
+                      t.label.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
                   
                   const groupedTopics = filteredTopics.reduce((acc, topic) => {
                     if (!acc[topic.category]) acc[topic.category] = []
