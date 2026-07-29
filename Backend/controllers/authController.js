@@ -28,8 +28,12 @@ const getGoogleOAuthClient = () => {
   return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
 };
 
-const signAccessToken = (user) => jwt.sign(
-  { userId: user.id, email: user.email, username: user.username, typ: 'access' },
+// sid (the session id, not a per-token jti) lets authMiddleware reject every access
+// token belonging to a revoked session in one Redis check, regardless of which of that
+// session's several refresh-issued access tokens is being presented -- see
+// sessionService.js's denylistSession for where this actually gets written.
+const signAccessToken = (user, sessionId) => jwt.sign(
+  { userId: user.id, email: user.email, username: user.username, typ: 'access', sid: sessionId },
   process.env.JWT_SECRET,
   { expiresIn: ACCESS_TOKEN_TTL }
 );
@@ -41,9 +45,10 @@ const requestMeta = (req) => ({
 
 // Issues an access token (JWT) plus a brand new session (opaque refresh token).
 // Used for login/register-verify/OAuth — anywhere a fresh session should start.
+// Session created first so its id can be embedded as the access token's sid claim.
 const issueTokens = async (prisma, user, meta = {}) => {
-  const accessToken = signAccessToken(user);
-  const refreshToken = await createSession(prisma, user.id, meta);
+  const { token: refreshToken, sessionId } = await createSession(prisma, user.id, meta);
+  const accessToken = signAccessToken(user, sessionId);
   return { accessToken, refreshToken };
 };
 
@@ -361,7 +366,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
       throw new AppError('Invalid or expired refresh token', 401, 'INVALID_REFRESH_TOKEN');
     }
 
-    return { accessToken: signAccessToken(user), refreshToken: rotation.token };
+    return { accessToken: signAccessToken(user, rotation.sessionId), refreshToken: rotation.token };
   });
 
   setRefreshCookie(res, result.refreshToken);

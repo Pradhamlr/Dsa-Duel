@@ -1,4 +1,5 @@
 import { randomUUID, randomBytes, createHash } from 'crypto';
+import { redis, ensureRedisConnected } from '../utils/redisClient.js';
 
 // Idle timeout: a session dies if it goes this long without being refreshed.
 const REFRESH_IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -8,6 +9,28 @@ const MAX_SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 // e.g. two tabs both refreshing at once, or a client retrying a dropped response.
 const ROTATION_GRACE_MS = 30 * 1000;
 const MAX_SESSIONS_PER_USER = 10;
+
+// Must match (or exceed) ACCESS_TOKEN_TTL in authController.js -- an access token can
+// never outlive this, so the denylist entry never needs to survive longer than the
+// worst-case remaining lifetime of any token that could carry this session's sid.
+const ACCESS_TOKEN_DENYLIST_TTL_MS = 15 * 60 * 1000;
+
+// Marks a session's sid as revoked in Redis so authMiddleware can reject any access
+// token still carrying it, closing the "stateless JWT stays valid until it naturally
+// expires" gap instead of waiting up to 15 minutes for that to happen on its own. Fails
+// open (logs and continues) rather than throwing -- the DB-side revocation above this
+// in every caller is the source of truth; this is a defense-in-depth speedup on top of
+// it, not something that should block the revoke itself if Redis is briefly down.
+const denylistSession = async (sessionId) => {
+  try {
+    await ensureRedisConnected();
+    await redis.set(`denylist:session:${sessionId}`, '1', 'PX', ACCESS_TOKEN_DENYLIST_TTL_MS);
+  } catch (err) {
+    console.error('Failed to denylist session (fail open):', err.message);
+  }
+};
+
+const denylistSessions = (sessionIds) => Promise.all(sessionIds.map(denylistSession));
 
 const sha256Hex = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -64,6 +87,7 @@ const enforceSessionCap = async (prisma, userId) => {
     where: { id: { in: idsToRevoke } },
     data: { revokedAt: new Date(), revokedReason: 'session_cap' }
   });
+  await denylistSessions(idsToRevoke);
 };
 
 /**
@@ -91,7 +115,7 @@ export const createSession = async (prisma, userId, meta = {}) => {
     }
   });
 
-  return `${id}.${secret}`;
+  return { token: `${id}.${secret}`, sessionId: id };
 };
 
 /**
@@ -154,17 +178,19 @@ export const rotateSession = async (prisma, rawToken, meta = {}) => {
     return { ok: false, reason: 'RACE_LOST' };
   }
 
-  return { ok: true, token: `${session.id}.${newSecret}`, userId: session.userId };
+  return { ok: true, token: `${session.id}.${newSecret}`, userId: session.userId, sessionId: session.id };
 };
 
 /**
  * Revokes every session sharing a familyId — the blast radius for a detected theft.
  */
 export const revokeFamily = async (prisma, familyId, reason) => {
+  const toRevoke = await prisma.session.findMany({ where: { familyId, revokedAt: null }, select: { id: true } });
   await prisma.session.updateMany({
     where: { familyId, revokedAt: null },
     data: { revokedAt: new Date(), revokedReason: reason }
   });
+  await denylistSessions(toRevoke.map((s) => s.id));
 };
 
 /**
@@ -174,20 +200,23 @@ export const revokeSessionByToken = async (prisma, rawToken, reason = 'logout') 
   const parsed = parseToken(rawToken);
   if (!parsed) return;
 
-  await prisma.session.updateMany({
+  const result = await prisma.session.updateMany({
     where: { id: parsed.sessionId, revokedAt: null },
     data: { revokedAt: new Date(), revokedReason: reason }
   });
+  if (result.count > 0) await denylistSession(parsed.sessionId);
 };
 
 /**
  * Revokes one session by id, scoped to the owning user so one account can't revoke another's.
  */
 export const revokeSessionById = async (prisma, userId, sessionId, reason = 'user_revoked') => {
-  return prisma.session.updateMany({
+  const result = await prisma.session.updateMany({
     where: { id: sessionId, userId, revokedAt: null },
     data: { revokedAt: new Date(), revokedReason: reason }
   });
+  if (result.count > 0) await denylistSession(sessionId);
+  return result;
 };
 
 /**
@@ -195,14 +224,17 @@ export const revokeSessionById = async (prisma, userId, sessionId, reason = 'use
  * (the session that just performed the action, so the user isn't logged out of it).
  */
 export const revokeAllSessionsForUser = async (prisma, userId, reason, exceptSessionId = null) => {
+  const where = {
+    userId,
+    revokedAt: null,
+    ...(exceptSessionId ? { id: { not: exceptSessionId } } : {})
+  };
+  const toRevoke = await prisma.session.findMany({ where, select: { id: true } });
   await prisma.session.updateMany({
-    where: {
-      userId,
-      revokedAt: null,
-      ...(exceptSessionId ? { id: { not: exceptSessionId } } : {})
-    },
+    where,
     data: { revokedAt: new Date(), revokedReason: reason }
   });
+  await denylistSessions(toRevoke.map((s) => s.id));
 };
 
 export const listActiveSessions = async (prisma, userId) => {
