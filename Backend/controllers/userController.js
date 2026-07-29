@@ -63,6 +63,54 @@ export const getSolvedProblems = async (req, res) => {
   }
 };
 
+// Aggregated progress stats for the LeetCode-style solve ring. Deliberately a real
+// DB-side aggregation (groupBy), not a raw dump of every SolvedProblem row for the
+// client to count itself -- the client receives finished numbers only.
+//
+// Difficulty keys are derived from what the catalog actually contains rather than a
+// hardcoded ['Easy','Medium','Hard'] list: this catalog intentionally never seeded Hard
+// problems, so a Hard key simply won't exist in the response and the UI has no empty
+// tile to special-case. If Hard problems are ever seeded, it appears on its own.
+export const getProblemStats = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const result = await withPrisma(async (prisma) => {
+      const [catalogCounts, solvedRows] = await Promise.all([
+        prisma.problem.groupBy({ by: ['difficulty'], _count: { _all: true } }),
+        prisma.solvedProblem.findMany({
+          where: { userId },
+          select: { status: true, problem: { select: { difficulty: true } } }
+        })
+      ])
+
+      const byDifficulty = {}
+      for (const row of catalogCounts) {
+        byDifficulty[row.difficulty] = { solved: 0, total: row._count._all }
+      }
+
+      let solved = 0
+      let attempting = 0
+      for (const row of solvedRows) {
+        if (row.status === 'solved') {
+          solved++
+          const bucket = byDifficulty[row.problem.difficulty]
+          if (bucket) bucket.solved++
+        } else {
+          attempting++
+        }
+      }
+
+      const totalCatalog = catalogCounts.reduce((sum, row) => sum + row._count._all, 0)
+      return { solved, attempting, totalCatalog, byDifficulty }
+    })
+
+    res.json(result)
+  } catch (err) {
+    console.error('getProblemStats error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
 // Scoped to the caller's own userId only -- never accepts a target user, so there's no
 // way to wipe anyone else's history.
 export const clearSolvedProblems = async (req, res) => {

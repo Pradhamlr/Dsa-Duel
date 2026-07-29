@@ -161,6 +161,17 @@ export const getSolvedProblems = async () => {
   return data.rows
 }
 
+// Aggregated progress stats (solved/attempting counts per difficulty + catalog totals)
+// for the solve ring. Already aggregated server-side -- no counting needed here.
+export const getProblemStats = async () => {
+  const res = await authFetch('/problems/stats')
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to load your progress stats')
+  }
+  return data
+}
+
 // Scoped server-side to the caller's own history -- irreversible, UI must confirm first
 export const clearSolvedProblems = async () => {
   const res = await authFetch('/problems/solved', { method: 'DELETE' })

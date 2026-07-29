@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authFetch, clearAuthSession, getSolvedProblems, clearSolvedProblems } from '../utils/api'
+import { authFetch, clearAuthSession, getSolvedProblems, getProblemStats, clearSolvedProblems } from '../utils/api'
+import SolveProgressRing from '../components/SolveProgressRing'
 
 const DIFFICULTY_STYLES = {
   Easy: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -54,6 +55,7 @@ const dangerBtnStyle = {
 
 export default function Revision() {
   const [rows, setRows] = useState([])
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [confirmingClear, setConfirmingClear] = useState(false)
@@ -76,8 +78,11 @@ export default function Revision() {
           window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
           return
         }
-        const data = await getSolvedProblems()
+        // Fetched together rather than sequentially -- neither depends on the other,
+        // and this keeps the ring from popping in noticeably after the list.
+        const [data, statsData] = await Promise.all([getSolvedProblems(), getProblemStats()])
         setRows(data)
+        setStats(statsData)
       } catch (err) {
         console.error('load solved problems error', err)
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Failed to load your problem history', type: 'error' } }))
@@ -93,6 +98,16 @@ export default function Revision() {
     try {
       await clearSolvedProblems()
       setRows([])
+      // Zero the ring's own counters too -- catalog totals stay, only this user's
+      // progress is cleared, so the ring should show an empty ring, not stale counts.
+      setStats((prev) => prev && ({
+        ...prev,
+        solved: 0,
+        attempting: 0,
+        byDifficulty: Object.fromEntries(
+          Object.entries(prev.byDifficulty).map(([k, v]) => [k, { ...v, solved: 0 }])
+        )
+      }))
       setConfirmingClear(false)
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Progress cleared', type: 'success' } }))
     } catch (err) {
@@ -181,6 +196,12 @@ export default function Revision() {
               )}
             </div>
           </div>
+
+          {!loading && stats && (
+            <div className="bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-white/10 mb-6 animate-slideIn flex justify-center" style={{ animationDelay: '0.05s' }}>
+              <SolveProgressRing stats={stats} />
+            </div>
+          )}
 
           {loading ? (
             <div className="bg-gray-900 rounded-2xl p-12 shadow-sm border border-white/10 flex flex-col items-center gap-4">
