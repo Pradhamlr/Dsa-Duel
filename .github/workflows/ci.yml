@@ -115,6 +115,11 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dsaduel_test
       REDIS_URL: redis://localhost:6379
+      # Unlike the `backend` job (which runs through vitest, where tests/setup.js
+      # supplies a fallback), this job runs the real server.js directly -- no vitest
+      # runner in the loop, so nothing fills this in if it's absent. authController.js
+      # has no default and throws signing the JWT if it's missing.
+      JWT_SECRET: e2e-ci-test-jwt-secret-not-for-real-use
 
     steps:
       - uses: actions/checkout@v4
