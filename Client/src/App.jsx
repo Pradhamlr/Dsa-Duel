@@ -100,13 +100,13 @@ export default function App(){
               clearAuthSession()
               setUser(null)
             }
-          } catch (verifyError) {
+          } catch {
             // Network error during verification - use cached user for now
             const redirectTo = restoreRedirectDestination()
             if (redirectTo) window.history.replaceState(null, '', redirectTo)
             setUser(parsedUser)
           }
-        } catch (parseError) {
+        } catch {
           clearAuthSession()
         }
       }
@@ -147,11 +147,6 @@ export default function App(){
     const redirectTo = restoreRedirectDestination()
     if (redirectTo) window.history.replaceState(null, '', redirectTo)
     setUser(userData)
-  }
-
-  const handleLogout = () => {
-    clearAuthSession()
-    setUser(null)
   }
 
   if (loading) {

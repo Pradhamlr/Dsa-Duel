@@ -215,7 +215,7 @@ export default function Contest(){
     try {
       localStorage.setItem('duel_name', displayName || '')
       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Name updated locally', type:'success'}}))
-    } catch (e) {
+    } catch {
       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Failed to save name', type:'error'}}))
     }
   }
@@ -448,7 +448,7 @@ export default function Contest(){
                           const d = await r.json()
                           setContest(d)
                         }
-                      } catch (e) { /* no-op */ }
+                      } catch { /* no-op */ }
                       window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Contest ended', type:'info'}}))
                     }} />
                   </div>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState } from 'react'
 
 const ToastContext = createContext()
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook lives alongside its provider by design
 export const useToast = () => {
   const context = useContext(ToastContext)
   if (!context) {

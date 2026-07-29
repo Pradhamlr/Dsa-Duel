@@ -33,7 +33,6 @@ export default function Home(){
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const [createdLink, setCreatedLink] = useState('')
-  const [dark, setDark] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
 
   // Verify user exists on mount
@@ -410,7 +409,7 @@ export default function Home(){
 
                     {/* Clickable areas */}
                     <div className="flex absolute inset-0 -my-4">
-                      {difficultyCards.map((card, idx) => (
+                      {difficultyCards.map((card) => (
                         <div
                           key={card.id}
                           onClick={() => setDifficulty(card.id)}

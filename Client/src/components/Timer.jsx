@@ -9,18 +9,17 @@ export default function Timer({ startTime, duration, onEnd }) {
     return () => clearInterval(interval);
   }, []);
 
-  if (!startTime) return null;
-
-  const endTime = startTime + duration * 1000;
-  const timeLeft = Math.max(0, endTime - now);
+  const timeLeft = startTime ? Math.max(0, startTime + duration * 1000 - now) : 0;
 
   useEffect(()=>{
-    if (timeLeft <= 0 && onEnd && !endedCalled) {
-      try { onEnd() } catch (e) { /* swallow */ }
+    if (startTime && timeLeft <= 0 && onEnd && !endedCalled) {
+      try { onEnd() } catch { /* swallow */ }
       setEndedCalled(true)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, onEnd])
+
+  if (!startTime) return null;
 
   const mins = Math.floor(timeLeft / 60000);
   const secs = Math.floor((timeLeft % 60000) / 1000);
