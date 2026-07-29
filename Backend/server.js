@@ -1,73 +1,21 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
-import errorHandler from './middleware/errorHandler.js';
-import { prisma } from './utils/database.js';
-import { closeAllConnections } from './services/contestEvents.js';
 
-// Load environment variables first
+// Must happen before anything that reads process.env at module-top-level scope
+// (utils/database.js's PrismaClient, utils/redisClient.js's ioredis instance, etc.).
+// A plain top-of-file `import app from './app.js'` would NOT be safe here even placed
+// after this call -- ES module imports are hoisted and fully evaluated before any of
+// this file's own top-level statements run, dotenv.config() included, regardless of
+// their textual order. A dynamic import() is a real expression evaluated in place, so
+// it's the only way to guarantee dotenv.config() has already run first. (Verified this
+// ordering hazard is real, not theoretical, with a standalone repro before relying on
+// this fix.) In production this doesn't matter -- Render injects real env vars directly
+// into process.env, dotenv.config() is a no-op there -- but local dev via Backend/.env
+// depends on it.
 dotenv.config();
 
-// Import routes
-import authRoutes from './routes/auth.js';
-import contestRoutes from './routes/contest.js';
-import userRoutes from './routes/user.js';
-
-const app = express();
-
-// CORS configuration
-const allowedOrigins = [
-  'https://dsa-duel.vercel.app',
-  'http://localhost:5173',
-  ...(process.env.EXTRA_ALLOWED_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean)
-]
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true)
-    if (allowedOrigins.includes(origin)) return callback(null, true)
-    const msg = 'The CORS policy for this site does not allow access from the specified Origin.'
-    return callback(new Error(msg), false)
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-  optionsSuccessStatus: 200,
-}
-
-// Trust Render's reverse proxy so req.ip is the real client IP, not the proxy's
-app.set('trust proxy', 1);
-
-// Middleware
-app.use(helmet());
-app.use(cors(corsOptions));
-app.use(express.json());
-
-// Render's own health checks (and any future uptime monitoring) hit this -- also
-// confirms the DB connection itself is alive, not just that the process is up.
-app.get('/health', async (req, res) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', uptime: process.uptime() });
-  } catch (err) {
-    res.status(503).json({ status: 'error', error: 'Database unreachable' });
-  }
-});
-
-// Routes
-app.use('/auth', authRoutes);
-app.use('/contest', contestRoutes);
-app.use('/', userRoutes);
-
-// Legacy route compatibility
-import { createContest } from './controllers/contestController.js';
-import authMiddleware from './middleware/authMiddleware.js';
-import validateDto from './middleware/validateDto.js';
-import { createContestDto } from './dtos/contestDtos.js';
-app.post('/create-contest', authMiddleware, validateDto(createContestDto), createContest);
-
-// Global error handler
-app.use(errorHandler);
+const { default: app } = await import('./app.js');
+const { prisma } = await import('./utils/database.js');
+const { closeAllConnections } = await import('./services/contestEvents.js');
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
