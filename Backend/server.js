@@ -21,8 +21,15 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
     console.log('Backend listening on', PORT)
 
-    // Only start AI retry job if DATABASE_URL is available
-    if (process.env.DATABASE_URL) {
+    // Only start background jobs if DATABASE_URL is available -- and never in the e2e
+    // Playwright run, which boots this exact process against a fresh, empty throwaway
+    // Postgres purely to serve a handful of seeded fake problems. Without this, every
+    // e2e CI run (and any local Playwright run) would trigger syncNewProblems() finding
+    // the whole real LeetCode catalog "missing" and re-fetch all ~2,458 problems from
+    // LeetCode's live API on every single push/PR -- real, unnecessary third-party API
+    // traffic the test doesn't need, discovered only after it had already been
+    // happening silently on passing CI runs.
+    if (process.env.DATABASE_URL && !process.env.DISABLE_BACKGROUND_JOBS) {
         import('./jobs/retryJobs.js').then(({ retryPendingAITags }) => {
             setInterval(() => {
                 retryPendingAITags().catch(err =>
@@ -60,7 +67,9 @@ const server = app.listen(PORT, () => {
             }, 6 * 60 * 60 * 1000);
         });
     } else {
-        console.log('DATABASE_URL not found - AI retry job disabled');
+        console.log(process.env.DISABLE_BACKGROUND_JOBS
+            ? 'DISABLE_BACKGROUND_JOBS set - background jobs disabled'
+            : 'DATABASE_URL not found - background jobs disabled');
     }
 });
 

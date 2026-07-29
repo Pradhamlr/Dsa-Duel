@@ -156,14 +156,17 @@ export default function Landing({ onNavigate }) {
                 <div className="absolute top-28 left-12 right-4 h-20 bg-gradient-to-r from-gray-700 to-gray-600 rounded-2xl"></div>
                 <div className="absolute top-52 left-4 right-12 h-24 bg-gradient-to-r from-indigo-900/60 to-blue-900/50 rounded-2xl"></div>
 
-                {/* Accent elements */}
-                <div className="absolute bottom-8 left-8 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl opacity-80"></div>
-                <div className="absolute top-16 right-4 w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg opacity-70"></div>
+                {/* Accent elements -- kept within the app's own palette (indigo/purple
+                    brand accent, emerald "success" accent) rather than the unrelated
+                    yellow/green/pink/cyan hues this had before, so the hero visual reads
+                    as part of the same product rather than a generic template. */}
+                <div className="absolute bottom-8 left-8 w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl opacity-80"></div>
+                <div className="absolute top-16 right-4 w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg opacity-70"></div>
               </div>
 
               {/* Floating accent shapes */}
-              <div className="absolute -top-4 left-8 w-20 h-20 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl opacity-60 transform -rotate-12"></div>
-              <div className="absolute bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl opacity-50 transform rotate-45"></div>
+              <div className="absolute -top-4 left-8 w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl opacity-60 transform -rotate-12"></div>
+              <div className="absolute bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl opacity-50 transform rotate-45"></div>
             </div>
           </div>
         </div>
@@ -260,7 +263,7 @@ export default function Landing({ onNavigate }) {
               </div>
               <span className="text-gray-100 font-semibold text-xl tracking-tight">DSA DUEL</span>
             </div>
-            <p className="text-gray-500 text-sm">© 2024 DSA Duel. Crafted with precision.</p>
+            <p className="text-gray-500 text-sm">© {new Date().getFullYear()} DSA Duel. Crafted with precision.</p>
           </div>
         </div>
       </footer>
