@@ -1,12 +1,16 @@
 import { withPrisma } from '../utils/database.js';
 import { getLanguageId, submitToJudge0 } from '../services/judgeClient.js';
-import { generateJavaProgram, parseJavaOutput, checkSignatureSupported } from '../utils/javaDriverGenerator.js';
+import { generateJavaProgram, checkSignatureSupported } from '../utils/javaDriverGenerator.js';
+import { generateCppProgram } from '../utils/cppDriverGenerator.js';
+import { parseJudgeOutput } from '../utils/judgeOutputParser.js';
 import { markResultSolved, recordProblemInteraction, buildContestResponse } from './contestController.js';
 import { broadcastContestUpdate } from '../services/contestEvents.js';
 
-// Java only for now -- C++'s driver generator is a follow-up, not yet built.
+// Output parsing is identical for every language (same wire format), so both drivers
+// share parseJudgeOutput rather than each carrying their own copy.
 const DRIVERS = {
-  java: { generateProgram: generateJavaProgram, parseOutput: parseJavaOutput }
+  java: { generateProgram: generateJavaProgram, parseOutput: parseJudgeOutput },
+  cpp: { generateProgram: generateCppProgram, parseOutput: parseJudgeOutput }
 };
 
 const runOrSubmit = async (req, res, { isSubmit }) => {

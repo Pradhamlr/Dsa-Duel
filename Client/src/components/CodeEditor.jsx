@@ -5,7 +5,7 @@ import { runCode, submitCode, getProblemDetails } from '../utils/api'
 
 const LANGUAGES = [
   { key: 'java', label: 'Java', monacoLang: 'java', judgeReady: true },
-  { key: 'cpp', label: 'C++', monacoLang: 'cpp', judgeReady: false }
+  { key: 'cpp', label: 'C++', monacoLang: 'cpp', judgeReady: true }
 ]
 
 const DIFFICULTY_STYLES = {

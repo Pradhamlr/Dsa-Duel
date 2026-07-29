@@ -172,25 +172,3 @@ ${JSON_HELPER}}
 `;
 }
 
-// Parses the stdout from a generateJavaProgram run back into per-test-case results.
-export function parseJavaOutput(stdout, testCases) {
-  const lines = (stdout || '').split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
-
-  return testCases.map((tc, i) => {
-    const line = lines[i];
-    if (line === undefined) {
-      return { input: tc.input, expectedOutput: tc.output, actualOutput: null, passed: false, error: 'No output produced for this test case' };
-    }
-    if (line.startsWith('__JUDGE_ERROR__:')) {
-      return { input: tc.input, expectedOutput: tc.output, actualOutput: null, passed: false, error: line.slice('__JUDGE_ERROR__:'.length) };
-    }
-    let actual;
-    try {
-      actual = JSON.parse(line);
-    } catch {
-      return { input: tc.input, expectedOutput: tc.output, actualOutput: line, passed: false, error: 'Could not parse output' };
-    }
-    const passed = JSON.stringify(actual) === JSON.stringify(tc.output);
-    return { input: tc.input, expectedOutput: tc.output, actualOutput: actual, passed };
-  });
-}
