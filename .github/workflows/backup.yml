@@ -1,0 +1,45 @@
+name: Database Backup
+
+# Scheduled workflows are automatically disabled by GitHub after 60 days with no commits
+# to the repo -- if this project goes quiet for a while, check the Actions tab
+# periodically to confirm backups are still actually running, not silently stopped.
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 3 AM UTC, daily
+  workflow_dispatch:       # manual "Run workflow" button, for testing and on-demand backups
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # -F c (custom format): compressed, and restorable selectively via pg_restore --
+      # the generally-recommended format for backups specifically, not an arbitrary
+      # choice. PROD_DATABASE_URL is the real Supabase connection string -- a genuine
+      # secret, completely separate from ci.yml's throwaway test DATABASE_URL (which is
+      # safe to leave in plaintext there since it only ever points at an ephemeral
+      # container).
+      - name: Dump database
+        id: dump
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          pg_dump "$DATABASE_URL" -F c -f "backup-$TIMESTAMP.dump"
+          echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
+          ls -lh "backup-$TIMESTAMP.dump"
+
+      # R2 turned out to require a card to activate at all, despite its free tier --
+      # switched to GitHub itself instead: no new signup, no card, ever, since this is
+      # the same account already authenticated for this repo. Real tradeoff, worth being
+      # honest about: this isn't independent infrastructure the way external storage
+      # would be -- if something happened to this specific repo, the backups go with
+      # it. Given every external option hit a payment wall, that tradeoff is worth it.
+      - name: Upload backup as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ steps.dump.outputs.timestamp }}
+          path: backup-${{ steps.dump.outputs.timestamp }}.dump
+          retention-days: 14
