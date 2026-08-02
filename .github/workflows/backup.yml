@@ -12,8 +12,20 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install postgresql-client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      # Ubuntu's own default postgresql-client package lags behind Supabase's actual
+      # server version -- hit this directly: server was Postgres 17.6, Ubuntu's default
+      # client was only 16.14, and pg_dump refuses to run against a server *newer* than
+      # itself (a deliberate safety check -- an older pg_dump can't reliably introspect
+      # a newer server's catalog, so it aborts rather than risk a silently-wrong dump).
+      # Installing from PGDG's own official repo (not pinned to a specific version)
+      # instead of Ubuntu's default one keeps this from breaking again the next time
+      # Supabase upgrades its Postgres version.
+      - name: Install postgresql-client (latest, via the official PGDG repo)
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
       # -F c (custom format): compressed, and restorable selectively via pg_restore --
       # the generally-recommended format for backups specifically, not an arbitrary
