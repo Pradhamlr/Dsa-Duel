@@ -147,3 +147,43 @@ describe('create -> start -> mark', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('create-contest rate limiting', () => {
+  it('429s once the per-user attempt cap is exceeded within the window', async () => {
+    await createVerifiedUser('spammer@example.com');
+    const token = await loginAndGetToken('spammer@example.com');
+    await seedProblems(prisma, 5, { difficulty: 'Easy' });
+
+    const statuses = [];
+    for (let i = 0; i < 21; i++) {
+      const res = await authed(token)(request(app).post('/create-contest')).send({
+        numProblems: 3, difficulty: 'Easy', selectedTopics: []
+      });
+      statuses.push(res.status);
+    }
+
+    expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
+    expect(statuses[20]).toBe(429);
+  });
+
+  it('does not rate-limit two different users independently', async () => {
+    await createVerifiedUser('user-a@example.com');
+    await createVerifiedUser('user-b@example.com');
+    const tokenA = await loginAndGetToken('user-a@example.com');
+    const tokenB = await loginAndGetToken('user-b@example.com');
+    await seedProblems(prisma, 5, { difficulty: 'Easy' });
+
+    // Exhaust user A's own bucket -- keyed per-user, so this should have zero effect on
+    // user B's ability to create a contest right after.
+    for (let i = 0; i < 20; i++) {
+      await authed(tokenA)(request(app).post('/create-contest')).send({
+        numProblems: 3, difficulty: 'Easy', selectedTopics: []
+      });
+    }
+
+    const bRes = await authed(tokenB)(request(app).post('/create-contest')).send({
+      numProblems: 3, difficulty: 'Easy', selectedTopics: []
+    });
+    expect(bRes.status).toBe(200);
+  });
+});

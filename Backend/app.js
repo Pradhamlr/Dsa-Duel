@@ -13,6 +13,7 @@ import { createContest } from './controllers/contestController.js';
 import authMiddleware from './middleware/authMiddleware.js';
 import validateDto from './middleware/validateDto.js';
 import { createContestDto } from './dtos/contestDtos.js';
+import { createContestRateLimit } from './middleware/rateLimitMiddleware.js';
 
 // Builds the configured Express app with no side effects (no .listen(), no background
 // jobs, no process signal handlers) so it can be imported directly by tests (supertest)
@@ -63,7 +64,7 @@ app.use('/auth', authRoutes);
 app.use('/contest', contestRoutes);
 app.use('/', userRoutes);
 
-app.post('/create-contest', authMiddleware, validateDto(createContestDto), createContest);
+app.post('/create-contest', authMiddleware, createContestRateLimit, validateDto(createContestDto), createContest);
 
 // Global error handler
 app.use(errorHandler);

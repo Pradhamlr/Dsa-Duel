@@ -100,3 +100,10 @@ export const verifyLeetCodeRateLimit = createRateLimit(15 * 60 * 1000, 20, userK
 // more generous than the LeetCode check since iterating on code triggers this often,
 // but still capped so a runaway client script can't hammer the droplet.
 export const judgeRateLimit = createRateLimit(15 * 60 * 1000, 40, userKey);
+
+// Every other sensitive endpoint had a rate limit; contest creation didn't. Keyed per
+// user (not IP) since it's already authenticated, same as the two limiters above.
+// Generous enough for real usage (a group creating several contests in one session)
+// while still capping a scripted create-contest loop -- each request also does a real
+// DB count query (ensureProblemsAvailable) and insert, not free work.
+export const createContestRateLimit = createRateLimit(60 * 60 * 1000, 20, userKey);
