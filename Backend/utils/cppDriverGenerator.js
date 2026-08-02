@@ -20,7 +20,7 @@
 // status), losing every remaining test case in that run, not just the offending one --
 // unlike Java, where each test case's try/catch isolates it from the others.
 
-import { parseType, isTypeSupported, checkSignatureSupported } from './typeTree.js';
+import { parseType, isTypeSupported, checkSignatureSupported, buildTreeStructure } from './typeTree.js';
 import { parseJudgeOutput } from './judgeOutputParser.js';
 
 export { isTypeSupported, checkSignatureSupported };
@@ -36,6 +36,8 @@ const PRIMITIVE_CPP_TYPES = {
 
 function cppTypeForNode(node) {
   if (node.kind === 'scalar') return PRIMITIVE_CPP_TYPES[node.base];
+  if (node.kind === 'treenode') return 'TreeNode*';
+  if (node.kind === 'listnode') return 'ListNode*';
   // Both 'array' and 'list' kinds map to vector<T> -- LeetCode's real C++ signatures
   // (see codeSnippets.cpp on any array/list problem) use vector uniformly, so there's
   // one target shape per nesting level, not two.
@@ -68,6 +70,30 @@ function cppScalarLiteral(base, value) {
   }
 }
 
+// Recursively emits nested `new TreeNode(val, left, right)` calls from the structure
+// buildTreeStructure produced (shared with the Java driver -- the BFS reconstruction
+// algorithm has nothing language-specific about it, only this literal-emission step
+// differs). `new` here matches the pointer-based struct LeetCode's own C++ signatures
+// use; nothing frees these -- see the module comment on the C++ UB gap for why that's
+// an accepted, deliberate choice, not an oversight (the sandboxed process exits and the
+// OS reclaims everything regardless, same as real competitive judges assume).
+function cppTreeLiteral(node) {
+  if (node === null) return 'nullptr';
+  return `new TreeNode(${node.val}, ${cppTreeLiteral(node.left)}, ${cppTreeLiteral(node.right)})`;
+}
+
+// A linked list needs no null-gap handling the way a tree does -- LeetCode's array
+// notation for one is always flat, e.g. [1,2,3]. Built right-to-left, each node's
+// `next` wired to the one built just before it, terminating in nullptr.
+function cppListNodeLiteral(vals) {
+  if (!vals || vals.length === 0) return 'nullptr';
+  let expr = 'nullptr';
+  for (let i = vals.length - 1; i >= 0; i--) {
+    expr = `new ListNode(${vals[i]}, ${expr})`;
+  }
+  return expr;
+}
+
 // Builds the brace-init body for a value of the given type-tree node. Unlike Java
 // (which needs a repeated "new int[]{...}" / "new ArrayList<>(Arrays.asList(...))" per
 // nesting kind), C++11 brace-init nests uniformly for vector<vector<T>> and deeper, so
@@ -77,6 +103,8 @@ function cppScalarLiteral(base, value) {
 // type-carrying expression the way Java's literal needed to be.
 function cppLiteralForNode(node, value) {
   if (node.kind === 'scalar') return cppScalarLiteral(node.base, value);
+  if (node.kind === 'treenode') return cppTreeLiteral(buildTreeStructure(value));
+  if (node.kind === 'listnode') return cppListNodeLiteral(value);
   const elements = value.map((v) => cppLiteralForNode(node.of, v)).join(', ');
   return `{${elements}}`;
 }
@@ -86,6 +114,35 @@ function cppLiteral(leetcodeType, value) {
   if (!parsed) throw new Error(`Unsupported type: ${leetcodeType}`);
   return cppLiteralForNode(parsed, value);
 }
+
+// LeetCode's own standard definitions -- verbatim match of what appears (as a comment
+// only) above every tree/list problem's real starter code, same reasoning as the Java
+// driver's TREE_NODE_CLASS/LIST_NODE_CLASS: LeetCode's own judge compiles the user's
+// Solution externally against these, so this driver (which combines everything into one
+// file) needs to actually compile them, not just comment them. Included unconditionally
+// for the same reason as Java's version -- JSON_HELPERS is shared across every problem
+// regardless of whether that specific one uses trees/lists, and its judgeToJson(TreeNode*)
+// / judgeToJson(ListNode*) overloads below need the structs to exist to compile at all.
+const TREE_NODE_STRUCT = `
+struct TreeNode {
+  int val;
+  TreeNode *left;
+  TreeNode *right;
+  TreeNode() : val(0), left(nullptr), right(nullptr) {}
+  TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+  TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+`;
+
+const LIST_NODE_STRUCT = `
+struct ListNode {
+  int val;
+  ListNode *next;
+  ListNode() : val(0), next(nullptr) {}
+  ListNode(int x) : val(x), next(nullptr) {}
+  ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+`;
 
 // Overload set, not a single reflective function -- the compiler picks the right one at
 // compile time based on the known return type, and the templated vector<T> overload
@@ -116,6 +173,13 @@ string judgeToJson(const string& v) {
   s += "\\"";
   return s;
 }
+// A tree's serialized array can contain a null slot (see judgeToJson(TreeNode*) below) --
+// optional<int> is the nullable element type that goes into that array, so it needs its
+// own overload for the vector<T> template (below) to recurse into per element, same as
+// every other element type.
+string judgeToJson(const optional<int>& v) {
+  return v.has_value() ? judgeToJson(*v) : "null";
+}
 template <typename T>
 string judgeToJson(const vector<T>& v) {
   string s = "[";
@@ -125,6 +189,47 @@ string judgeToJson(const vector<T>& v) {
   }
   s += "]";
   return s;
+}
+// Serializes back to LeetCode's own level-order-with-nulls array notation -- the
+// reverse of buildTreeStructure/cppTreeLiteral above, but this half has to run at Judge0
+// execution time (in C++), not codegen time, since the user's function builds/returns a
+// tree we don't know the shape of until it actually runs. Same BFS algorithm as the
+// Java driver's __serializeTree, verified by hand against the same real example
+// ([3,9,20,null,null,15,7] round-trips exactly) before trusting it: each real node's
+// value is recorded and both children enqueued (even if nullptr, so their slot still
+// appears), each nullptr dequeued is recorded but never expanded (a missing node has no
+// children to serialize), and trailing nulls are trimmed to match LeetCode's own
+// convention. Unlike Java, storing a null pointer in a plain queue<TreeNode*> is fine --
+// there's no ArrayDeque-style restriction on null elements in C++ containers.
+string judgeToJson(TreeNode* root) {
+  vector<optional<int>> result;
+  if (root != nullptr) {
+    queue<TreeNode*> q;
+    q.push(root);
+    while (!q.empty()) {
+      TreeNode* node = q.front();
+      q.pop();
+      if (node == nullptr) {
+        result.push_back(nullopt);
+        continue;
+      }
+      result.push_back(node->val);
+      q.push(node->left);
+      q.push(node->right);
+    }
+    while (!result.empty() && !result.back().has_value()) result.pop_back();
+  }
+  return judgeToJson(result);
+}
+// A linked list has no gaps to preserve, so this is just a walk -- no null-tracking
+// needed the way the tree serializer does.
+string judgeToJson(ListNode* head) {
+  vector<int> result;
+  while (head != nullptr) {
+    result.push_back(head->val);
+    head = head->next;
+  }
+  return judgeToJson(result);
 }
 `;
 
@@ -160,7 +265,7 @@ ${declarations}
 
   return `#include <bits/stdc++.h>
 using namespace std;
-
+${TREE_NODE_STRUCT}${LIST_NODE_STRUCT}
 ${userCode}
 ${JSON_HELPERS}
 int main() {
