@@ -87,8 +87,95 @@ describe('generateCppProgram', () => {
 });
 
 describe('isTypeSupported / checkSignatureSupported re-export', () => {
-  it('still rejects TreeNode/ListNode through the C++ driver\'s own import', () => {
-    expect(isTypeSupported('ListNode')).toBe(false);
-    expect(checkSignatureSupported({ params: [{ name: 'head', type: 'ListNode' }], return: { type: 'integer' } }).supported).toBe(false);
+  it('accepts TreeNode/ListNode through the C++ driver\'s own import', () => {
+    expect(isTypeSupported('TreeNode')).toBe(true);
+    expect(isTypeSupported('ListNode')).toBe(true);
+    expect(checkSignatureSupported({ params: [{ name: 'head', type: 'ListNode' }], return: { type: 'integer' } }).supported).toBe(true);
+  });
+
+  it('still rejects a genuinely unsupported custom class', () => {
+    expect(isTypeSupported('NestedInteger')).toBe(false);
+  });
+});
+
+describe('generateCppProgram -- TreeNode/ListNode', () => {
+  const invertTreeSignature = {
+    name: 'invertTree',
+    params: [{ name: 'root', type: 'TreeNode' }],
+    return: { type: 'TreeNode' }
+  };
+
+  it('includes the TreeNode and ListNode struct definitions unconditionally', () => {
+    const program = generateCppProgram({
+      userCode: 'class Solution { public: TreeNode* invertTree(TreeNode* root) { return root; } };',
+      functionSignature: invertTreeSignature,
+      testCases: [{ input: { root: [1] }, output: [1] }]
+    });
+    expect(program).toContain('struct TreeNode {');
+    expect(program).toContain('struct ListNode {');
+  });
+
+  it('maps TreeNode/ListNode to a pointer type', () => {
+    const program = generateCppProgram({
+      userCode: 'class Solution { public: TreeNode* invertTree(TreeNode* root) { return root; } };',
+      functionSignature: invertTreeSignature,
+      testCases: [{ input: { root: [1] }, output: [1] }]
+    });
+    expect(program).toContain('TreeNode* root0 =');
+  });
+
+  it('constructs a tree literal at codegen time with new, null gaps as nullptr', () => {
+    const program = generateCppProgram({
+      userCode: 'class Solution { public: TreeNode* invertTree(TreeNode* root) { return root; } };',
+      functionSignature: invertTreeSignature,
+      testCases: [{ input: { root: [3, 9, 20, null, null, 15, 7] }, output: [3, 9, 20, null, null, 15, 7] }]
+    });
+    expect(program).toContain(
+      'new TreeNode(3, new TreeNode(9, nullptr, nullptr), new TreeNode(20, new TreeNode(15, nullptr, nullptr), new TreeNode(7, nullptr, nullptr)))'
+    );
+  });
+
+  it('declares an empty tree input as nullptr', () => {
+    const program = generateCppProgram({
+      userCode: 'class Solution { public: TreeNode* invertTree(TreeNode* root) { return root; } };',
+      functionSignature: invertTreeSignature,
+      testCases: [{ input: { root: [] }, output: [] }]
+    });
+    expect(program).toContain('TreeNode* root0 = nullptr;');
+  });
+
+  it('constructs a ListNode literal right-to-left with new', () => {
+    const sig = { name: 'reverseList', params: [{ name: 'head', type: 'ListNode' }], return: { type: 'ListNode' } };
+    const program = generateCppProgram({
+      userCode: 'class Solution { public: ListNode* reverseList(ListNode* head) { return head; } };',
+      functionSignature: sig,
+      testCases: [{ input: { head: [1, 2, 3] }, output: [1, 2, 3] }]
+    });
+    expect(program).toContain('new ListNode(1, new ListNode(2, new ListNode(3, nullptr)))');
+  });
+
+  it('includes the optional<int>/TreeNode*/ListNode* judgeToJson overloads', () => {
+    // Unlike Java, no special-casing is needed at the call site for a tree/list return
+    // (auto deduces the concrete pointer type, so there's no Object-style erasure that
+    // could lose the "this null means an empty tree" distinction) -- verified with a
+    // real g++ run of the empty-tree case before trusting this, not just reasoned about.
+    const program = generateCppProgram({
+      userCode: 'class Solution { public: TreeNode* invertTree(TreeNode* root) { return root; } };',
+      functionSignature: invertTreeSignature,
+      testCases: [{ input: { root: [] }, output: [] }]
+    });
+    expect(program).toContain('auto __result0 = sol.invertTree(root0);');
+    expect(program).toContain('string judgeToJson(const optional<int>& v)');
+    expect(program).toContain('string judgeToJson(TreeNode* root)');
+    expect(program).toContain('string judgeToJson(ListNode* head)');
+  });
+
+  it('does not disturb the plain auto-deduction path for a non-tree/list return type', () => {
+    const program = generateCppProgram({
+      userCode: 'class Solution {};',
+      functionSignature: twoSumSignature,
+      testCases: [{ input: { nums: [1], target: 1 }, output: [] }]
+    });
+    expect(program).toContain('auto __result0 = sol.twoSum(nums0, target0);');
   });
 });
