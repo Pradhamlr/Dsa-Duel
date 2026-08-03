@@ -144,29 +144,48 @@ export default function Landing({ onNavigate }) {
           </div>
         </div>
 
-        {/* Right Visual Element */}
+        {/* Right Visual Element -- a static, decorative code-editor mockup (not a real
+            Monaco instance; this is a pre-login marketing page, so a plain HTML/CSS
+            visual keeps it lightweight rather than loading the real editor bundle just
+            for show). A rotated card peeks out behind it for the same "stacked cards"
+            depth the rest of this hero already leans on. */}
         <div className="flex-1 flex justify-end">
-          <div className="relative">
-            {/* Abstract geometric shapes inspired by the reference */}
-            <div className="w-96 h-96 relative">
-              {/* Main building-like structure */}
-              <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl shadow-2xl transform rotate-3 border border-white/10">
-                {/* Layered sections */}
-                <div className="absolute top-8 left-8 right-8 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl opacity-90"></div>
-                <div className="absolute top-28 left-12 right-4 h-20 bg-gradient-to-r from-gray-700 to-gray-600 rounded-2xl"></div>
-                <div className="absolute top-52 left-4 right-12 h-24 bg-gradient-to-r from-indigo-900/60 to-blue-900/50 rounded-2xl"></div>
+          <div className="relative w-[420px]">
+            <div className="absolute -top-4 -right-4 w-full h-full bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-2xl transform rotate-3 border border-white/10"></div>
 
-                {/* Accent elements -- kept within the app's own palette (indigo/purple
-                    brand accent, emerald "success" accent) rather than the unrelated
-                    yellow/green/pink/cyan hues this had before, so the hero visual reads
-                    as part of the same product rather than a generic template. */}
-                <div className="absolute bottom-8 left-8 w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl opacity-80"></div>
-                <div className="absolute top-16 right-4 w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg opacity-70"></div>
+            <div className="relative bg-gray-900 rounded-2xl shadow-2xl border border-white/10 overflow-hidden transform -rotate-1">
+              {/* Window chrome */}
+              <div className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 border-b border-white/10">
+                <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
+                <span className="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+                <span className="w-3 h-3 rounded-full bg-green-500/80"></span>
+                <span className="ml-3 text-xs text-gray-500 font-mono">solution.cpp</span>
               </div>
 
-              {/* Floating accent shapes */}
-              <div className="absolute -top-4 left-8 w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl opacity-60 transform -rotate-12"></div>
-              <div className="absolute bottom-4 -left-4 w-16 h-16 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl opacity-50 transform rotate-45"></div>
+              {/* Code body */}
+              <div className="p-5 font-mono text-[13px] leading-relaxed">
+                <div><span className="text-purple-400">#include</span> <span className="text-emerald-400">&lt;iostream&gt;</span></div>
+                <div><span className="text-purple-400">#include</span> <span className="text-emerald-400">&lt;vector&gt;</span></div>
+                <div className="h-4"></div>
+                <div><span className="text-purple-400">using namespace</span> <span className="text-gray-300">std;</span></div>
+                <div className="h-4"></div>
+                <div><span className="text-indigo-400">int</span> <span className="text-blue-300">main</span><span className="text-gray-400">() {'{'}</span></div>
+                <div className="pl-4 text-gray-500">// Optimize for competitive execution</div>
+                <div className="pl-4"><span className="text-indigo-400">ios_base::sync_with_stdio</span><span className="text-gray-400">(</span><span className="text-orange-400">false</span><span className="text-gray-400">);</span></div>
+                <div className="pl-4"><span className="text-gray-300">cin.tie</span><span className="text-gray-400">(</span><span className="text-orange-400">NULL</span><span className="text-gray-400">);</span></div>
+                <div className="h-4"></div>
+                <div className="pl-4"><span className="text-indigo-400">int</span> <span className="text-gray-300">t;</span></div>
+                <div className="pl-4"><span className="text-gray-300">cin</span> <span className="text-gray-400">{'>>'}</span> <span className="text-gray-300">t;</span></div>
+                <div className="pl-4"><span className="text-purple-400">while</span> <span className="text-gray-400">(t--) {'{'}</span></div>
+                <div className="pl-8"><span className="text-indigo-400">int</span> <span className="text-gray-300">n;</span></div>
+                <div className="pl-8"><span className="text-gray-300">cin</span> <span className="text-gray-400">{'>>'}</span> <span className="text-gray-300">n;</span></div>
+                <div className="pl-8"><span className="text-indigo-400">vector</span><span className="text-gray-400">{'<int>'}</span> <span className="text-gray-300">a(n);</span></div>
+                <div className="pl-8 bg-indigo-500/10 -mx-5 px-5 rounded"><span className="text-purple-400">for</span> <span className="text-gray-400">(</span><span className="text-indigo-400">int</span><span className="text-gray-400">&amp;</span> <span className="text-gray-300">i : a) cin {'>>'} i;</span></div>
+                <div className="pl-8"><span className="text-gray-300">cout</span> <span className="text-gray-400">{'<<'}</span> <span className="text-blue-300">solve</span><span className="text-gray-400">(a)</span> <span className="text-gray-400">{'<<'}</span> <span className="text-emerald-400">"\n"</span><span className="text-gray-400">;</span></div>
+                <div className="pl-4 text-gray-400">{'}'}</div>
+                <div className="pl-4"><span className="text-purple-400">return</span> <span className="text-orange-400">0</span><span className="text-gray-400">;</span></div>
+                <div className="text-gray-400">{'}'}</div>
+              </div>
             </div>
           </div>
         </div>
