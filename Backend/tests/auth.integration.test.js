@@ -14,6 +14,7 @@ const { sendEmail } = await import('../utils/sendEmail.js');
 const { prisma, resetDb } = await import('./dbHelpers.js');
 const { redis, ensureRedisConnected } = await import('../utils/redisClient.js');
 const { assertSafeTestRedis } = await import('../utils/dbSafety.js');
+const { createSession } = await import('../services/sessionService.js');
 
 const PASSWORD = 'TestPass123!';
 
@@ -278,5 +279,57 @@ describe('login rate limiting', () => {
 
     expect(statuses.slice(0, 5)).toEqual([401, 401, 401, 401, 401]);
     expect(statuses[5]).toBe(429);
+  });
+});
+
+describe('session cap eviction', () => {
+  // 11 real logins would hit loginRateLimit (5/15min per IP) long before reaching the
+  // session cap, since both live on the same endpoint -- so the first 10 sessions are
+  // seeded directly through sessionService's own createSession, the exact function
+  // enforceSessionCap lives inside, rather than fighting an unrelated rate limiter to
+  // exercise this. Only the 11th, cap-triggering session goes through the real HTTP
+  // login path, which is the actual boundary this test cares about.
+  it('evicts only the oldest session once an 11th session is created', async () => {
+    const user = await createVerifiedUser({ email: 'capped@example.com' });
+
+    const seeded = [];
+    for (let i = 0; i < 10; i++) {
+      seeded.push(await createSession(prisma, user.id, { userAgent: `seed-agent-${i}` }));
+    }
+
+    // Force deterministic ordering rather than relying on real-world timing gaps between
+    // the seeding calls above being large enough to guarantee distinct lastUsedAt values.
+    const oldest = seeded[0];
+    await prisma.session.update({
+      where: { id: oldest.sessionId },
+      data: { lastUsedAt: new Date(Date.now() - 60 * 60 * 1000) }
+    });
+
+    const loginRes = await request(app).post('/auth/login').send({ email: 'capped@example.com', password: PASSWORD });
+    expect(loginRes.status).toBe(200);
+
+    const activeSessions = await prisma.session.findMany({ where: { userId: user.id, revokedAt: null } });
+    expect(activeSessions).toHaveLength(10);
+    expect(activeSessions.some((s) => s.id === oldest.sessionId)).toBe(false);
+
+    const evictedSession = await prisma.session.findUnique({ where: { id: oldest.sessionId } });
+    expect(evictedSession.revokedAt).not.toBeNull();
+    expect(evictedSession.revokedReason).toBe('session_cap');
+
+    // Not just marked revoked in the DB -- the evicted session's own refresh token must
+    // actually be rejected at the real endpoint a client would hit.
+    const refreshRes = await request(app)
+      .post('/auth/refresh-token')
+      .set('Cookie', `duel_refresh_token=${oldest.token}`)
+      .send();
+    expect(refreshRes.status).toBe(401);
+
+    // The 9 sessions that were NOT the oldest must be untouched -- this is an eviction
+    // of exactly one, not an accidental mass-revoke.
+    const untouched = seeded.slice(1);
+    for (const session of untouched) {
+      const row = await prisma.session.findUnique({ where: { id: session.sessionId } });
+      expect(row.revokedAt).toBeNull();
+    }
   });
 });

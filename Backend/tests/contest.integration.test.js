@@ -1,9 +1,18 @@
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 import { randomUUID } from 'crypto';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
 
+// verifyLeetCodeSubmission hits the real LeetCode GraphQL API otherwise -- mocked so
+// these tests never depend on a real external service (or a real LeetCode account's
+// actual submission history). Declared before importing app.js so every module that
+// imports leetcode.js -- including contestController.js transitively -- gets the mock.
+// problemIngestion.js (used by the createContest/startContest tests already in this
+// file) does not import from leetcode.js, so mocking it here doesn't touch that path.
+vi.mock('../utils/leetcode.js', () => ({ fetchRecentAcSubmissions: vi.fn() }));
+
 const { default: app } = await import('../app.js');
+const { fetchRecentAcSubmissions } = await import('../utils/leetcode.js');
 const { prisma, resetDb, seedProblems } = await import('./dbHelpers.js');
 const { redis, ensureRedisConnected } = await import('../utils/redisClient.js');
 const { assertSafeTestRedis } = await import('../utils/dbSafety.js');
@@ -35,6 +44,7 @@ beforeEach(async () => {
   assertSafeTestRedis();
   await ensureRedisConnected();
   await redis.flushdb();
+  fetchRecentAcSubmissions.mockReset();
 });
 
 afterAll(async () => {
@@ -187,5 +197,90 @@ describe('create-contest rate limiting', () => {
       numProblems: 3, difficulty: 'Easy', selectedTopics: []
     });
     expect(bRes.status).toBe(200);
+  });
+});
+
+describe('leetcode verification', () => {
+  async function setupStartedContest(email) {
+    const user = await createVerifiedUser(email);
+    const token = await loginAndGetToken(email);
+    await seedProblems(prisma, 5, { difficulty: 'Easy' });
+
+    const { body: { contestId } } = await authed(token)(request(app).post('/create-contest')).send({
+      numProblems: 3, difficulty: 'Easy', selectedTopics: []
+    });
+    await authed(token)(request(app).post(`/contest/${contestId}/start`)).send({});
+
+    const contest = await prisma.contest.findUnique({ where: { id: contestId } });
+    return { user, token, contestId, contest };
+  }
+
+  it('rejects verification when the user has no LeetCode username set', async () => {
+    const { token, contestId } = await setupStartedContest('nolcusername@example.com');
+
+    const res = await authed(token)(request(app).post(`/contest/${contestId}/verify-leetcode`)).send({ problemIndex: 0 });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('LEETCODE_USERNAME_NOT_SET');
+    expect(fetchRecentAcSubmissions).not.toHaveBeenCalled();
+  });
+
+  it('returns verified:false and marks nothing solved when no matching submission is found', async () => {
+    const { user, token, contestId } = await setupStartedContest('nomatch@example.com');
+    await prisma.user.update({ where: { id: user.id }, data: { leetcodeUsername: 'someuser' } });
+
+    fetchRecentAcSubmissions.mockResolvedValueOnce([
+      { titleSlug: 'some-other-problem', timestamp: String(Math.floor(Date.now() / 1000)) }
+    ]);
+
+    const res = await authed(token)(request(app).post(`/contest/${contestId}/verify-leetcode`)).send({ problemIndex: 0 });
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(false);
+
+    const result = await prisma.result.findFirst({ where: { contestId, userId: user.id, problemIndex: 0 } });
+    expect(result).toBeNull();
+  });
+
+  it('verifies and marks solved when a matching submission after contest start is found', async () => {
+    const { user, token, contestId, contest } = await setupStartedContest('match@example.com');
+    await prisma.user.update({ where: { id: user.id }, data: { leetcodeUsername: 'someuser' } });
+
+    const slug = contest.problems[0].slug;
+    const afterStartTimestamp = Math.floor((contest.startTime.getTime() + 60 * 1000) / 1000);
+    fetchRecentAcSubmissions.mockResolvedValueOnce([
+      { titleSlug: slug, timestamp: String(afterStartTimestamp) }
+    ]);
+
+    const res = await authed(token)(request(app).post(`/contest/${contestId}/verify-leetcode`)).send({ problemIndex: 0 });
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(true);
+
+    const result = await prisma.result.findFirst({ where: { contestId, userId: user.id, problemIndex: 0 } });
+    expect(result.solvedAt).not.toBeNull();
+    expect(result.verifiedVia).toBe('leetcode');
+
+    const problem = await prisma.problem.findUnique({ where: { leetcodeId: slug } });
+    const solvedRow = await prisma.solvedProblem.findUnique({
+      where: { userId_problemId: { userId: user.id, problemId: problem.id } }
+    });
+    expect(solvedRow.status).toBe('solved');
+  });
+
+  // The entire point of verifying against real LeetCode history instead of trusting a
+  // self-reported click: a submission made BEFORE this contest started must not count,
+  // even with an exact slug match -- otherwise solving it last week would trivially
+  // "verify" it in a contest started today.
+  it('does not count a matching submission timestamped before the contest started', async () => {
+    const { user, token, contestId, contest } = await setupStartedContest('stale@example.com');
+    await prisma.user.update({ where: { id: user.id }, data: { leetcodeUsername: 'someuser' } });
+
+    const slug = contest.problems[0].slug;
+    const beforeStartTimestamp = Math.floor((contest.startTime.getTime() - 60 * 1000) / 1000);
+    fetchRecentAcSubmissions.mockResolvedValueOnce([
+      { titleSlug: slug, timestamp: String(beforeStartTimestamp) }
+    ]);
+
+    const res = await authed(token)(request(app).post(`/contest/${contestId}/verify-leetcode`)).send({ problemIndex: 0 });
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(false);
   });
 });
