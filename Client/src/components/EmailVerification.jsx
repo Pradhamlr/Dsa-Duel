@@ -1,10 +1,62 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { API, storeAuthSession } from '../utils/api.js'
+
+const RESEND_COOLDOWN_SECONDS = 60
 
 export default function EmailVerification({ email, onVerificationSuccess, onBack }) {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+  const cooldownRef = useRef(null)
+
+  useEffect(() => {
+    return () => clearInterval(cooldownRef.current)
+  }, [])
+
+  const startCooldown = () => {
+    setCooldown(RESEND_COOLDOWN_SECONDS)
+    clearInterval(cooldownRef.current)
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  const handleResend = async () => {
+    setResendLoading(true)
+    setResendMessage('')
+    setError('')
+
+    try {
+      const res = await fetch(`${API}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not resend the code. Please try again shortly.')
+      }
+
+      setResendMessage(data.message)
+      startCooldown()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setResendLoading(false)
+    }
+  }
 
   const handleVerifyEmail = async (e) => {
     e.preventDefault()
@@ -157,7 +209,27 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
               ) : 'Verify Email'}
             </button>
           </form>
-          
+
+          {resendMessage && (
+            <div className="mt-6 p-4 bg-emerald-500/10 border-l-4 border-emerald-500 rounded-r-lg">
+              <p className="text-sm font-medium text-emerald-300">{resendMessage}</p>
+            </div>
+          )}
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-400">
+              Didn't get a code?{' '}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendLoading || cooldown > 0}
+                className="font-medium text-indigo-400 hover:text-indigo-300 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+              >
+                {resendLoading ? 'Sending...' : cooldown > 0 ? `Resend code (${cooldown}s)` : 'Resend code'}
+              </button>
+            </p>
+          </div>
+
           <style jsx>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
