@@ -49,12 +49,15 @@ export async function getLanguageId(language) {
 // Synchronous submission (wait=true) -- same pattern verified manually during Judge0
 // setup. Fine at this scale (a handful of test cases per Run/Submit click); Judge0's
 // batch endpoint would be the next step if this needs to scale up.
-export async function submitToJudge0({ sourceCode, languageId }) {
+export async function submitToJudge0({ sourceCode, languageId, compilerOptions }) {
   const { url, token } = getConfig();
+
+  const body = { source_code: sourceCode, language_id: languageId };
+  if (compilerOptions) body.compiler_options = compilerOptions;
 
   const response = await axios.post(
     `${url}/submissions?base64_encoded=false&wait=true`,
-    { source_code: sourceCode, language_id: languageId },
+    body,
     { headers: authHeaders(token), timeout: 20000 }
   );
 
