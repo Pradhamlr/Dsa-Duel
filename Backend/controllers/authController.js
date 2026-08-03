@@ -13,6 +13,19 @@ import {
   revokeAllSessionsForUser
 } from '../services/sessionService.js';
 import { REFRESH_COOKIE_NAME, getRefreshTokenFromRequest } from '../utils/cookies.js';
+import { redis, ensureRedisConnected } from '../utils/redisClient.js';
+
+// A registration is only "pending" here, not a real User row -- until the OTP is
+// verified, nothing permanent exists in Postgres at all. This is deliberate: the old
+// design created the User row immediately (emailVerified: false), which meant a user
+// who never came back to verify was stuck forever -- re-registering hit
+// USER_ALREADY_EXISTS, and nothing else in the app ever touched emailVerified back to
+// true. Storing the attempt in Redis with a TTL matching the OTP's own 10-minute window
+// means an abandoned registration just expires on its own (no cleanup job needed), and
+// registering again with the same email before verifying simply overwrites the pending
+// entry with a fresh OTP -- which is also, for free, what a "resend" does.
+const pendingRegistrationKey = (email) => `pending:register:${email}`;
+const PENDING_REGISTRATION_TTL_SECONDS = 10 * 60;
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -117,56 +130,48 @@ const buildOAuthErrorRedirect = (code) => {
 export const register = asyncHandler(async (req, res) => {
   const { email, username, password, name } = req.validatedBody;
 
-  const result = await withPrisma(async (prisma) => {
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email },
-          ...(username ? [{ username }] : [])
-        ]
-      }
-    });
-
-    if (existingUser) {
-      throw new AppError('User already exists', 400, 'USER_ALREADY_EXISTS');
+  // Real, permanent conflicts only -- an already-verified account, or someone else's
+  // taken username. This does NOT fully rule out two people registering the same
+  // username within the same pending window (each gets their own Redis entry, keyed by
+  // email) -- that race is caught later, at actual User creation time in verifyEmail.
+  const existingUser = await withPrisma((prisma) => prisma.user.findFirst({
+    where: {
+      OR: [
+        { email },
+        ...(username ? [{ username }] : [])
+      ]
     }
+  }));
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        id: randomUUID(),
-        email,
-        username,
-        password: hashedPassword,
-        name: name || username || email.split('@')[0]
-      }
-    });
+  if (existingUser) {
+    throw new AppError('User already exists', 400, 'USER_ALREADY_EXISTS');
+  }
 
-    const verificationOTP = randomSixDigitOtp();
-    const hashedVerificationOTP = await bcrypt.hash(verificationOTP, 10);
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const verificationOTP = randomSixDigitOtp();
+  const hashedOTP = await bcrypt.hash(verificationOTP, 10);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        verificationToken: hashedVerificationOTP,
-        verificationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000)
-      }
-    });
+  const pending = {
+    email,
+    username: username || null,
+    name: name || username || email.split('@')[0],
+    hashedPassword,
+    hashedOTP
+  };
 
-    await sendEmail(
-      email,
-      'Verify Your Email - DSA Duel',
-      `Your email verification code is: ${verificationOTP}. This code will expire in 10 minutes.`
-    );
+  await ensureRedisConnected();
+  await redis.set(pendingRegistrationKey(email), JSON.stringify(pending), 'EX', PENDING_REGISTRATION_TTL_SECONDS);
 
-    return {
-      message: 'Registration successful. Please check your email for verification code.',
-      userId: user.id,
-      email: user.email
-    };
+  await sendEmail(
+    email,
+    'Verify Your Email - DSA Duel',
+    `Your email verification code is: ${verificationOTP}. This code will expire in 10 minutes.`
+  );
+
+  res.status(201).json({
+    message: 'Registration successful. Please check your email for verification code.',
+    email
   });
-
-  res.status(201).json(result);
 });
 
 export const login = asyncHandler(async (req, res) => {
@@ -274,6 +279,43 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+// Registering again with the same email already re-sends a fresh code for free (see
+// the pendingRegistrationKey comment above) -- but that means re-typing the whole form.
+// This is the same thing as a one-field convenience: a "Resend code" button on the
+// verification screen itself, for when the first email got lost/delayed/spam-filtered,
+// same as most production signup flows offer. Same enumeration-safe shape as
+// forgotPassword -- identical generic response whether no pending registration exists
+// (never registered, already verified, or the 10-minute window simply expired) or a
+// genuinely fresh code gets sent, so this can't be used to probe registration state.
+export const resendVerification = asyncHandler(async (req, res) => {
+  const { email } = req.validatedBody;
+  const genericMessage = { message: 'If a pending registration exists for this email, a new code has been sent.' };
+
+  await ensureRedisConnected();
+  const pendingRaw = await redis.get(pendingRegistrationKey(email));
+
+  if (!pendingRaw) {
+    return res.json(genericMessage);
+  }
+
+  const pending = JSON.parse(pendingRaw);
+  const verificationOTP = randomSixDigitOtp();
+  pending.hashedOTP = await bcrypt.hash(verificationOTP, 10);
+
+  // Reset the TTL to a fresh 10 minutes too, not just the OTP -- otherwise a resend
+  // right before the original window closes would hand out a code that itself expires
+  // almost immediately.
+  await redis.set(pendingRegistrationKey(email), JSON.stringify(pending), 'EX', PENDING_REGISTRATION_TTL_SECONDS);
+
+  await sendEmail(
+    email,
+    'Verify Your Email - DSA Duel',
+    `Your email verification code is: ${verificationOTP}. This code will expire in 10 minutes.`
+  );
+
+  res.json(genericMessage);
+});
+
 export const verifyOTP = asyncHandler(async (req, res) => {
   const { email, otp } = req.validatedBody;
 
@@ -377,36 +419,58 @@ export const verifyEmail = asyncHandler(async (req, res) => {
   const { email, otp } = req.validatedBody;
   const meta = requestMeta(req);
 
+  await ensureRedisConnected();
+  const pendingRaw = await redis.get(pendingRegistrationKey(email));
+
+  // Redis's own TTL already handles "expired" for us -- a missing key means either it
+  // never existed or it aged out, and there's no meaningful difference between those
+  // two from the caller's side, so both collapse into the same generic error.
+  if (!pendingRaw) {
+    throw new AppError('Invalid or expired verification code', 400, 'INVALID_VERIFICATION_CODE');
+  }
+
+  const pending = JSON.parse(pendingRaw);
+  const validOTP = await bcrypt.compare(otp, pending.hashedOTP);
+  if (!validOTP) {
+    throw new AppError('Invalid verification code', 400, 'INVALID_VERIFICATION_CODE');
+  }
+
   const result = await withPrisma(async (prisma) => {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user || !user.verificationToken || !user.verificationTokenExpiry) {
-      throw new AppError('Invalid or expired verification code', 400, 'INVALID_VERIFICATION_CODE');
-    }
-
-    if (new Date() > user.verificationTokenExpiry) {
-      throw new AppError('Verification code has expired', 400, 'VERIFICATION_CODE_EXPIRED');
-    }
-
-    const validOTP = await bcrypt.compare(otp, user.verificationToken);
-    if (!validOTP) {
-      throw new AppError('Invalid verification code', 400, 'INVALID_VERIFICATION_CODE');
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { email },
-      data: {
-        emailVerified: true,
-        verificationToken: null,
-        verificationTokenExpiry: null
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          id: randomUUID(),
+          email: pending.email,
+          username: pending.username,
+          password: pending.hashedPassword,
+          name: pending.name,
+          emailVerified: true
+        }
+      });
+    } catch (err) {
+      // Rare, real race: someone else registered and verified the same email/username
+      // while this pending entry was waiting (each pending registration is independent,
+      // keyed by email, so username collisions between two different in-flight
+      // registrations aren't caught until this exact moment). P2002 is Prisma's unique-
+      // constraint-violation code.
+      if (err.code === 'P2002') {
+        throw new AppError(
+          'That email or username was just taken by someone else finishing registration first -- please register again.',
+          409,
+          'REGISTRATION_CONFLICT'
+        );
       }
-    });
+      throw err;
+    }
 
-    const tokens = await issueTokens(prisma, updatedUser, meta);
+    await redis.del(pendingRegistrationKey(email));
+
+    const tokens = await issueTokens(prisma, user, meta);
 
     return {
       ...tokens,
-      user: publicUser(updatedUser)
+      user: publicUser(user)
     };
   });
 
@@ -488,17 +552,11 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
         }
       });
 
-      // Only auto-link into an existing account by email when that account is already
-      // verified. Otherwise an attacker could pre-register someone's email with a
-      // password (unverified) and have this Google login silently verify + adopt it.
-      if (user && !user.googleId && !user.emailVerified) {
-        throw new AppError(
-          'An account with this email already exists. Please verify it or reset your password first.',
-          409,
-          'EMAIL_ACCOUNT_UNVERIFIED'
-        );
-      }
-
+      // Safe to auto-link into an existing row unconditionally: the pending-registration
+      // redesign means the only two places a User row is ever created (here, and
+      // verifyEmail's promotion of a verified pending registration) always set
+      // emailVerified: true at creation -- an unverified row can no longer exist to
+      // hijack in the first place (see the register()/verifyEmail() comments above).
       if (user) {
         user = await prisma.user.update({
           where: { id: user.id },
@@ -539,9 +597,6 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
     }));
   } catch (err) {
     console.error('Google OAuth callback failed:', err);
-    if (err instanceof AppError && err.code === 'EMAIL_ACCOUNT_UNVERIFIED') {
-      return res.redirect(buildOAuthErrorRedirect('EMAIL_ACCOUNT_UNVERIFIED'));
-    }
     return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_FAILED'));
   }
 });
