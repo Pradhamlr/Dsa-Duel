@@ -38,15 +38,45 @@ jobs:
       # secret, completely separate from ci.yml's throwaway test DATABASE_URL (which is
       # safe to leave in plaintext there since it only ever points at an ephemeral
       # container).
+      #
+      # Calling the FULL versioned path (/usr/lib/postgresql/17/bin/pg_dump), not the
+      # bare "pg_dump" command -- confirmed via a real run's log that installing
+      # postgresql-client-17 successfully (17.10 actually got installed) was NOT enough
+      # on its own: the bare "pg_dump" on PATH still resolved to Ubuntu's older
+      # pre-installed 16.14 build, because Debian/Ubuntu's postgresql-common installs
+      # every major version side-by-side under its own /usr/lib/postgresql/<ver>/bin/
+      # directory, and update-alternatives (visible in that run's log switching psql's
+      # man page) doesn't reliably repoint pg_dump's own symlink to the newest one.
+      # Invoking the exact versioned binary sidesteps that resolution entirely --
+      # correct regardless of whatever else update-alternatives or PATH decide.
       - name: Dump database
         id: dump
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          pg_dump "$DATABASE_URL" -F c -f "backup-$TIMESTAMP.dump"
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          "$PG_DUMP" --version
+          "$PG_DUMP" "$DATABASE_URL" -F c -f "backup-$TIMESTAMP.dump"
           echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
           ls -lh "backup-$TIMESTAMP.dump"
+
+      # Encrypt before upload. This repo is private today, but artifacts sit in Actions
+      # history for the full 14-day retention window regardless -- if the repo is ever
+      # made public while a backup is still in that window, an unencrypted dump would
+      # expose every real row (emails, bcrypt hashes, contest/solve history) to anyone
+      # who can list the repo's artifacts. Symmetric AES256 via a single shared
+      # passphrase (not a keypair) -- simplest correct option for a one-person setup;
+      # the same secret both encrypts here and decrypts locally on restore.
+      - name: Encrypt backup
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            -o "backup-${{ steps.dump.outputs.timestamp }}.dump.gpg" \
+            "backup-${{ steps.dump.outputs.timestamp }}.dump"
+          rm "backup-${{ steps.dump.outputs.timestamp }}.dump"
 
       # R2 turned out to require a card to activate at all, despite its free tier --
       # switched to GitHub itself instead: no new signup, no card, ever, since this is
@@ -58,5 +88,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ steps.dump.outputs.timestamp }}
-          path: backup-${{ steps.dump.outputs.timestamp }}.dump
+          path: backup-${{ steps.dump.outputs.timestamp }}.dump.gpg
           retention-days: 14
