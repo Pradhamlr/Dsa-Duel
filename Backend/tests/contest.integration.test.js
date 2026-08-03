@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 const { default: app } = await import('../app.js');
 const { prisma, resetDb, seedProblems } = await import('./dbHelpers.js');
 const { redis, ensureRedisConnected } = await import('../utils/redisClient.js');
+const { assertSafeTestRedis } = await import('../utils/dbSafety.js');
 
 const PASSWORD = 'TestPass123!';
 
@@ -31,6 +32,7 @@ const authed = (token) => (req) => req.set('Authorization', `Bearer ${token}`);
 
 beforeEach(async () => {
   await resetDb();
+  assertSafeTestRedis();
   await ensureRedisConnected();
   await redis.flushdb();
 });

@@ -13,6 +13,7 @@ const { default: app } = await import('../app.js');
 const { sendEmail } = await import('../utils/sendEmail.js');
 const { prisma, resetDb } = await import('./dbHelpers.js');
 const { redis, ensureRedisConnected } = await import('../utils/redisClient.js');
+const { assertSafeTestRedis } = await import('../utils/dbSafety.js');
 
 const PASSWORD = 'TestPass123!';
 
@@ -33,6 +34,7 @@ beforeEach(async () => {
   sendEmail.mockClear();
   // Flush rate-limit counters and denylist entries so one test's attempts never bleed
   // into the next's -- this Redis instance only ever exists for this test run.
+  assertSafeTestRedis();
   await ensureRedisConnected();
   await redis.flushdb();
 });
@@ -61,21 +63,117 @@ describe('register -> verify-email', () => {
     expect(verifyRes.body.user.email).toBe('newuser@example.com');
   });
 
-  it('rejects a wrong OTP and leaves the account unverified', async () => {
+  // A wrong OTP no longer leaves a real, permanently-unverified User row -- under the
+  // pending-registration-in-Redis redesign, nothing was ever created in Postgres in the
+  // first place, so there's no account to be "unverified." login() correctly falls
+  // through to its no-such-user branch (401 INVALID_CREDENTIALS), not the old
+  // EMAIL_NOT_VERIFIED case, which can no longer be reached via a failed OTP attempt.
+  it('rejects a wrong OTP and never creates a real account', async () => {
     await request(app).post('/auth/register').send({ email: 'wrongotp@example.com', password: PASSWORD });
     const res = await request(app).post('/auth/verify-email').send({ email: 'wrongotp@example.com', otp: '000000' });
     expect(res.status).toBe(400);
 
+    const dbUser = await prisma.user.findUnique({ where: { email: 'wrongotp@example.com' } });
+    expect(dbUser).toBeNull();
+
     const loginRes = await request(app).post('/auth/login').send({ email: 'wrongotp@example.com', password: PASSWORD });
-    expect(loginRes.status).toBe(403);
-    expect(loginRes.body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect(loginRes.status).toBe(401);
+    expect(loginRes.body.code).toBe('INVALID_CREDENTIALS');
   });
 
-  it('rejects registering the same email twice', async () => {
-    await request(app).post('/auth/register').send({ email: 'dupe@example.com', password: PASSWORD });
-    const res = await request(app).post('/auth/register').send({ email: 'dupe@example.com', password: PASSWORD });
+  it('rejects registering an email that is already a real, verified account', async () => {
+    await createVerifiedUser({ email: 'realuser@example.com' });
+    const res = await request(app).post('/auth/register').send({ email: 'realuser@example.com', password: PASSWORD });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('USER_ALREADY_EXISTS');
+  });
+
+  // The core point of the redesign: registering again with the same still-unverified
+  // email is not an error at all -- it's the same thing as pressing "resend," since
+  // nothing permanent existed yet to collide with. The old OTP must stop working the
+  // moment the new one is issued (the pending Redis entry is fully overwritten, not
+  // appended to), and the new one must work.
+  it('lets registering the same still-pending email again overwrite the OTP, not conflict', async () => {
+    await request(app).post('/auth/register').send({ email: 'pending@example.com', password: PASSWORD });
+    const firstOtp = sendEmail.mock.calls[0][2].match(/\d{6}/)[0];
+
+    const secondRes = await request(app).post('/auth/register').send({ email: 'pending@example.com', password: PASSWORD });
+    expect(secondRes.status).toBe(201);
+    expect(sendEmail).toHaveBeenCalledTimes(2);
+    const secondOtp = sendEmail.mock.calls[1][2].match(/\d{6}/)[0];
+
+    const oldOtpRes = await request(app).post('/auth/verify-email').send({ email: 'pending@example.com', otp: firstOtp });
+    expect(oldOtpRes.status).toBe(400);
+
+    const newOtpRes = await request(app).post('/auth/verify-email').send({ email: 'pending@example.com', otp: secondOtp });
+    expect(newOtpRes.status).toBe(200);
+    expect(newOtpRes.body.user.email).toBe('pending@example.com');
+  });
+
+  // A registration nobody ever verifies must not leave a permanent trace -- this is the
+  // actual bug the whole redesign fixes, so it's worth asserting directly rather than
+  // only through the "can register again" behavior above.
+  it('leaves no User row behind for an abandoned, never-verified registration', async () => {
+    await request(app).post('/auth/register').send({ email: 'abandoned@example.com', password: PASSWORD });
+    const dbUser = await prisma.user.findUnique({ where: { email: 'abandoned@example.com' } });
+    expect(dbUser).toBeNull();
+  });
+});
+
+describe('resend-verification', () => {
+  it('resends a fresh code that works, while the original code stops working', async () => {
+    await request(app).post('/auth/register').send({ email: 'resend@example.com', password: PASSWORD });
+    const firstOtp = sendEmail.mock.calls[0][2].match(/\d{6}/)[0];
+
+    const resendRes = await request(app).post('/auth/resend-verification').send({ email: 'resend@example.com' });
+    expect(resendRes.status).toBe(200);
+    expect(sendEmail).toHaveBeenCalledTimes(2);
+    const secondOtp = sendEmail.mock.calls[1][2].match(/\d{6}/)[0];
+
+    const oldOtpRes = await request(app).post('/auth/verify-email').send({ email: 'resend@example.com', otp: firstOtp });
+    expect(oldOtpRes.status).toBe(400);
+
+    const newOtpRes = await request(app).post('/auth/verify-email').send({ email: 'resend@example.com', otp: secondOtp });
+    expect(newOtpRes.status).toBe(200);
+  });
+
+  // Enumeration-safe, same as forgotPassword: identical response and no email sent,
+  // whether there's genuinely no pending registration for that address or (below) it's
+  // already a real verified account.
+  it('returns the same generic response and sends nothing for an unknown email', async () => {
+    const res = await request(app).post('/auth/resend-verification').send({ email: 'nobodyhere@example.com' });
+    expect(res.status).toBe(200);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns the same generic response and sends nothing for an already-verified account', async () => {
+    await createVerifiedUser({ email: 'alreadyverified@example.com' });
+    const res = await request(app).post('/auth/resend-verification').send({ email: 'alreadyverified@example.com' });
+    expect(res.status).toBe(200);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe('concurrent pending registrations racing on username', () => {
+  // Each pending registration lives independently in Redis, keyed by email -- so two
+  // different people can be mid-registration with the same username at once, something
+  // register()'s own pre-check can no longer fully prevent (that check only looks at
+  // real Postgres rows). Whoever verifies first wins the username; the second must get
+  // a clear, specific conflict rather than an unhandled 500 from Prisma's raw unique-
+  // constraint error.
+  it('lets the first verifier win a contested username and gives the second a clear conflict', async () => {
+    await request(app).post('/auth/register').send({ email: 'racer1@example.com', username: 'sharedname', password: PASSWORD });
+    const otp1 = sendEmail.mock.calls[0][2].match(/\d{6}/)[0];
+
+    await request(app).post('/auth/register').send({ email: 'racer2@example.com', username: 'sharedname', password: PASSWORD });
+    const otp2 = sendEmail.mock.calls[1][2].match(/\d{6}/)[0];
+
+    const firstVerify = await request(app).post('/auth/verify-email').send({ email: 'racer1@example.com', otp: otp1 });
+    expect(firstVerify.status).toBe(200);
+
+    const secondVerify = await request(app).post('/auth/verify-email').send({ email: 'racer2@example.com', otp: otp2 });
+    expect(secondVerify.status).toBe(409);
+    expect(secondVerify.body.code).toBe('REGISTRATION_CONFLICT');
   });
 });
 
