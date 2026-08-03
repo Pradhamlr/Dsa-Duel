@@ -54,7 +54,14 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
 
     const program = driver.generateProgram({ userCode: code, functionSignature: problem.functionSignature, testCases });
     const languageId = await getLanguageId(language);
-    const judgeResult = await submitToJudge0({ sourceCode: program, languageId });
+    // C++ language IDs are auto-detected from whichever compiler happens to be first
+    // in this Judge0 instance's own language list (see judgeClient.js) -- that can be
+    // an old default (e.g. Clang 7), whose default standard predates C++17 and doesn't
+    // know optional/nullopt at all (the tree/list driver support needs both). Forcing
+    // -std=c++17 explicitly here works with either GCC or Clang, regardless of which
+    // one ends up matched, so this doesn't need to track a specific instance's IDs.
+    const compilerOptions = language === 'cpp' ? '-std=c++17' : undefined;
+    const judgeResult = await submitToJudge0({ sourceCode: program, languageId, compilerOptions });
 
     // A compile error or a non-"Accepted" Judge0-level status means the per-test-case
     // logic never ran at all -- report that directly rather than trying to parse
