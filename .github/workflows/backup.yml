@@ -20,12 +20,17 @@ jobs:
       # Installing from PGDG's own official repo (not pinned to a specific version)
       # instead of Ubuntu's default one keeps this from breaking again the next time
       # Supabase upgrades its Postgres version.
-      - name: Install postgresql-client (latest, via the official PGDG repo)
+      # Explicitly versioned (-17), not the generic "postgresql-client" metapackage --
+      # ubuntu-latest runners often already have some client version pre-installed, so
+      # asking apt for the unversioned name can report "already the newest version"
+      # without ever pulling PGDG's actual newer package. Requesting the specific
+      # version leaves no ambiguity about which one apt needs to fetch.
+      - name: Install postgresql-client-17 (via the official PGDG repo)
         run: |
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-17
 
       # -F c (custom format): compressed, and restorable selectively via pg_restore --
       # the generally-recommended format for backups specifically, not an arbitrary
@@ -33,13 +38,26 @@ jobs:
       # secret, completely separate from ci.yml's throwaway test DATABASE_URL (which is
       # safe to leave in plaintext there since it only ever points at an ephemeral
       # container).
+      #
+      # Calling the FULL versioned path (/usr/lib/postgresql/17/bin/pg_dump), not the
+      # bare "pg_dump" command -- confirmed via a real run's log that installing
+      # postgresql-client-17 successfully (17.10 actually got installed) was NOT enough
+      # on its own: the bare "pg_dump" on PATH still resolved to Ubuntu's older
+      # pre-installed 16.14 build, because Debian/Ubuntu's postgresql-common installs
+      # every major version side-by-side under its own /usr/lib/postgresql/<ver>/bin/
+      # directory, and update-alternatives (visible in that run's log switching psql's
+      # man page) doesn't reliably repoint pg_dump's own symlink to the newest one.
+      # Invoking the exact versioned binary sidesteps that resolution entirely --
+      # correct regardless of whatever else update-alternatives or PATH decide.
       - name: Dump database
         id: dump
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          pg_dump "$DATABASE_URL" -F c -f "backup-$TIMESTAMP.dump"
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          "$PG_DUMP" --version
+          "$PG_DUMP" "$DATABASE_URL" -F c -f "backup-$TIMESTAMP.dump"
           echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
           ls -lh "backup-$TIMESTAMP.dump"
 
