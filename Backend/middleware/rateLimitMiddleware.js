@@ -1,4 +1,5 @@
 import { redis, ensureRedisConnected } from '../utils/redisClient.js';
+import { logger } from '../utils/logger.js';
 
 const ipKey = (req) => req.ip;
 
@@ -28,7 +29,7 @@ const checkRateLimit = async (key, windowMs, maxAttempts) => {
     }
     return count <= maxAttempts;
   } catch (err) {
-    console.error('Rate limit check failed, failing open:', err.message);
+    logger.warn({ event: 'redis_failopen', check: 'rate_limit', err: err.message }, 'Rate limit check failed, failing open');
     return true;
   }
 };

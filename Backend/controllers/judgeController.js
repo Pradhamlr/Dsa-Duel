@@ -113,7 +113,7 @@ export const runCode = async (req, res) => {
   try {
     await runOrSubmit(req, res, { isSubmit: false });
   } catch (err) {
-    console.error(err);
+    req.log.error({ err }, 'Judge run failed');
     res.status(500).json({ error: 'failed to run code' });
   }
 };
@@ -122,7 +122,7 @@ export const submitCode = async (req, res) => {
   try {
     await runOrSubmit(req, res, { isSubmit: true });
   } catch (err) {
-    console.error(err);
+    req.log.error({ err }, 'Judge submit failed');
     res.status(500).json({ error: 'failed to submit code' });
   }
 };

@@ -1,9 +1,16 @@
+import * as Sentry from '@sentry/node';
+
 const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
+  // isOperational errors (AppError, DTO validation, etc.) are expected/handled cases --
+  // real user input problems, not bugs. Only genuinely unexpected errors are worth the
+  // structured error-level log; logging every 404/validation error at error severity
+  // would drown out the signal this is supposed to surface.
   if (!err.isOperational) {
-    console.error(err);
+    req.log.error({ err }, err.message);
+    Sentry.captureException(err);
   }
 
   // Mongoose bad ObjectId

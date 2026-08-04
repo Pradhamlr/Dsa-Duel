@@ -13,9 +13,24 @@ import dotenv from 'dotenv';
 // depends on it.
 dotenv.config();
 
+// Manual capture at the known error points (errorHandler.js, the uncaughtException/
+// unhandledRejection handlers below) rather than Sentry's recommended --import-flag
+// auto-instrumentation setup -- that needs the Node invocation itself changed (every
+// place this app gets started: npm scripts, e2e's webServer config, eventually
+// Render's start command) for automatic http/express tracing this app doesn't
+// actually need. The stated goal is error tracking, not full APM, so this simpler
+// integration is sufficient. Conditional on SENTRY_DSN being set so local dev/CI runs
+// without it configured don't try to report anywhere; Sentry.captureException() calls
+// elsewhere no-op safely if init() was never called, so no reason to guard those too.
+if (process.env.SENTRY_DSN) {
+    const Sentry = await import('@sentry/node');
+    Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
+}
+
 const { default: app } = await import('./app.js');
 const { prisma } = await import('./utils/database.js');
 const { closeAllConnections } = await import('./services/contestEvents.js');
+const { logger } = await import('./utils/logger.js');
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
@@ -103,12 +118,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 // no cleanup, or an unhandledRejection is silently swallowed and the process limps on
 // in a state nothing accounted for. Both cases now log clearly and go through the same
 // graceful-shutdown path, so the process manager (Render) restarts it cleanly instead.
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err)
+process.on('uncaughtException', async (err) => {
+    logger.fatal({ err }, 'Uncaught Exception')
+    if (process.env.SENTRY_DSN) (await import('@sentry/node')).captureException(err)
     gracefulShutdown('uncaughtException')
 })
 
-process.on('unhandledRejection', (reason) => {
-    console.error('Unhandled Rejection:', reason)
+process.on('unhandledRejection', async (reason) => {
+    logger.fatal({ err: reason }, 'Unhandled Rejection')
+    if (process.env.SENTRY_DSN) (await import('@sentry/node')).captureException(reason)
     gracefulShutdown('unhandledRejection')
 })
