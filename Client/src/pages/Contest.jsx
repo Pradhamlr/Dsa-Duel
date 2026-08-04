@@ -32,7 +32,7 @@ const primaryBtnStyle = (disabled) => ({
   color: '#ffffff',
   fontWeight: 600,
   border: 'none',
-  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+  boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
   cursor: disabled ? 'not-allowed' : 'pointer',
   opacity: disabled ? 0.7 : 1
 })
@@ -403,7 +403,7 @@ export default function Contest(){
         <div className="flex items-center gap-3">
           <button
             onClick={copyLink}
-            className="px-3 py-1.5 text-sm rounded-lg"
+            className="px-5 py-2 text-sm rounded-full font-semibold"
             style={neutralBtnStyle}
             {...neutralHoverProps}
           >
@@ -411,7 +411,7 @@ export default function Contest(){
           </button>
           <button
             onClick={()=>navigate('/')}
-            className="px-3 py-1.5 text-sm rounded-lg"
+            className="px-5 py-2 text-sm rounded-full font-semibold"
             style={neutralBtnStyle}
             {...neutralHoverProps}
           >

@@ -7,31 +7,6 @@ const PlaySVG = ({ size = 24 }) => (
   </svg>
 )
 
-const ContestIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-  </svg>
-)
-
-const TrackingIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 3V21H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M7 16L12 11L16 15L21 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <circle cx="7" cy="16" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-    <circle cx="12" cy="11" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-    <circle cx="16" cy="15" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-  </svg>
-)
-
-const CodeIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M16 18L22 12L16 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 6L2 12L8 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M14 4L10 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
-
 export default function Landing({ onNavigate }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950/20 to-purple-950/10">
@@ -57,17 +32,17 @@ export default function Landing({ onNavigate }) {
           <span className="text-indigo-400 font-semibold">Home</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => onNavigate('login')}
             style={{
               backgroundColor: '#1e293b',
               color: '#cbd5e1',
-              padding: '6px 12px',
+              padding: '8px 20px',
               border: '1px solid #334155',
-              borderRadius: 8,
+              borderRadius: 9999,
               fontSize: '0.875rem',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
@@ -80,23 +55,23 @@ export default function Landing({ onNavigate }) {
               e.target.style.borderColor = '#334155'
             }}
           >
-            LOGIN
+            Log In
           </button>
           <button
             onClick={() => onNavigate('signup')}
             style={{
               background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
               color: '#ffffff',
-              padding: '6px 12px',
+              padding: '8px 20px',
               border: 'none',
-              borderRadius: 8,
-              boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+              borderRadius: 9999,
+              boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
               fontSize: '0.875rem',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer'
             }}
           >
-            JOIN NOW
+            Join Now
           </button>
         </div>
       </nav>
@@ -126,7 +101,7 @@ export default function Landing({ onNavigate }) {
                 borderRadius: '10px',
                 fontWeight: '600',
                 border: 'none',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                 cursor: 'pointer'
               }}
             >
@@ -191,101 +166,10 @@ export default function Landing({ onNavigate }) {
         </div>
       </div>
 
-      {/* Features Section */}
-      <div id="features" className="px-8 py-24 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-gray-100 mb-4 tracking-tight">Everything you need to excel</h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto">Powerful tools and features designed to accelerate your coding journey</p>
-        </div>
-        <style jsx>{`
-          @keyframes float1 {
-            0%, 100% { transform: rotateY(-2deg) rotateX(1deg); }
-            50% { transform: rotateY(2deg) rotateX(-1deg); }
-          }
-          @keyframes float2 {
-            0%, 100% { transform: rotateY(1deg) rotateX(-2deg); }
-            50% { transform: rotateY(-1deg) rotateX(2deg); }
-          }
-          @keyframes float3 {
-            0%, 100% { transform: rotateY(-1deg) rotateX(2deg); }
-            50% { transform: rotateY(1deg) rotateX(-1deg); }
-          }
-          .float-1 { animation: float1 6s ease-in-out infinite; }
-          .float-2 { animation: float2 7s ease-in-out infinite; }
-          .float-3 { animation: float3 8s ease-in-out infinite; }
-          .float-1:hover, .float-2:hover, .float-3:hover { animation-play-state: paused; }
-        `}</style>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Real-time Contests Card */}
-          <div className="group w-full h-64 mx-auto [perspective:1000px] cursor-pointer p-1 rounded-2xl bg-gradient-to-br from-blue-500/5 to-indigo-500/10 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 transition-shadow duration-300">
-            <div className="relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-              {/* Front Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gray-900 border border-white/10 shadow-sm p-8">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500/10 to-indigo-500/20 rounded-2xl flex items-center justify-center mb-6">
-                  <ContestIcon size={28} className="text-blue-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-100 text-center mb-3">Real-time Contests</h3>
-                <p className="text-sm text-gray-400 text-center leading-relaxed">Hover to learn more</p>
-              </div>
-              {/* Back Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-gray-700 to-gray-800 text-white [transform:rotateY(180deg)] p-8">
-                <p className="text-center text-base font-medium leading-relaxed">Live coding competitions with global developers</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Skill Tracking Card */}
-          <div className="group w-full h-64 mx-auto [perspective:1000px] cursor-pointer p-1 rounded-2xl bg-gradient-to-br from-emerald-500/5 to-teal-500/10 shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 transition-shadow duration-300">
-            <div className="relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-              {/* Front Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gray-900 border border-white/10 shadow-sm p-8">
-                <div className="w-14 h-14 bg-gradient-to-br from-emerald-500/10 to-teal-500/20 rounded-2xl flex items-center justify-center mb-6">
-                  <TrackingIcon size={28} className="text-emerald-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-100 text-center mb-3">Skill Tracking</h3>
-                <p className="text-sm text-gray-400 text-center leading-relaxed">Hover to learn more</p>
-              </div>
-              {/* Back Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-slate-600 to-slate-700 text-white [transform:rotateY(180deg)] p-8">
-                <p className="text-center text-base font-medium leading-relaxed">Track progress and climb global rankings</p>
-              </div>
-            </div>
-          </div>
-
-          {/* LeetCode Integration Card */}
-          <div className="group w-full h-64 mx-auto [perspective:1000px] cursor-pointer p-1 rounded-2xl bg-gradient-to-br from-purple-500/5 to-violet-500/10 shadow-lg shadow-purple-500/10 hover:shadow-xl hover:shadow-purple-500/20 transition-shadow duration-300">
-            <div className="relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-              {/* Front Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center rounded-2xl bg-gray-900 border border-white/10 shadow-sm p-8">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500/10 to-violet-500/20 rounded-2xl flex items-center justify-center mb-6">
-                  <CodeIcon size={28} className="text-purple-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-100 text-center mb-3">LeetCode Integration</h3>
-                <p className="text-sm text-gray-400 text-center leading-relaxed">Hover to learn more</p>
-              </div>
-              {/* Back Side */}
-              <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-600 to-zinc-700 text-white [transform:rotateY(180deg)] p-8">
-                <p className="text-center text-base font-medium leading-relaxed">Curated coding challenges and solutions</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-900 to-gray-950 border-t border-white/10 py-16">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">D</span>
-              </div>
-              <span className="text-gray-100 font-semibold text-xl tracking-tight">DSA DUEL</span>
-            </div>
-            <p className="text-gray-500 text-sm">© {new Date().getFullYear()} DSA Duel. Crafted with precision.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Left plain/empty on purpose -- "Watch Demo" will eventually redirect to a
+          real demo instead of scrolling here; id="features" kept as a harmless anchor
+          in the meantime so the existing scrollIntoView call doesn't break. */}
+      <div id="features"></div>
     </div>
   )
 }

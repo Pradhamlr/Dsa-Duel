@@ -28,7 +28,7 @@ const inactiveTabStyle = { backgroundColor: '#1e293b', color: '#cbd5e1', border:
 const disabledActionStyle = { backgroundColor: '#1e293b', color: '#64748b', border: '1px solid #334155', fontWeight: 600, cursor: 'not-allowed' }
 const disabledPrimaryStyle = { backgroundColor: '#475569', color: '#ffffff', fontWeight: 600, cursor: 'not-allowed', border: 'none' }
 const actionStyle = { backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', fontWeight: 600, cursor: 'pointer' }
-const primaryStyle = { background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)', color: '#ffffff', fontWeight: 600, cursor: 'pointer', border: 'none', boxShadow: '0 4px 16px rgba(99,102,241,0.35)' }
+const primaryStyle = { background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)', color: '#ffffff', fontWeight: 600, cursor: 'pointer', border: 'none', boxShadow: '0 2px 10px rgba(99,102,241,0.18)' }
 
 const formatExampleInput = (input) => {
   if (!input || typeof input !== 'object') return String(input)

@@ -117,17 +117,17 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
           style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
             color: '#ffffff',
-            padding: '6px 12px',
+            padding: '8px 20px',
             border: 'none',
-            borderRadius: 8,
-            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            borderRadius: 9999,
+            boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
             fontSize: '0.875rem',
-            fontWeight: '500',
+            fontWeight: '600',
             zIndex: 60,
             cursor: 'pointer'
           }}
         >
-          BACK
+          Back
         </button>
       </div>
 
@@ -188,7 +188,7 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
                 borderRadius: '10px',
                 fontWeight: '600',
                 border: 'none',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 marginTop: '24px',
                 opacity: loading ? '0.8' : '1'
