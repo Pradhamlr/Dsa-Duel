@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/node';
+
 const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
@@ -8,6 +10,7 @@ const errorHandler = (err, req, res, next) => {
   // would drown out the signal this is supposed to surface.
   if (!err.isOperational) {
     req.log.error({ err }, err.message);
+    Sentry.captureException(err);
   }
 
   // Mongoose bad ObjectId

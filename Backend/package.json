@@ -15,6 +15,7 @@
   "type": "module",
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@sentry/node": "^10.69.0",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
