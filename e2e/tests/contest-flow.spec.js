@@ -5,7 +5,7 @@ const PASSWORD = 'E2ePass123!';
 
 test('login, create a contest, start it, and see real problems appear', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'LOGIN' }).click();
+  await page.getByRole('button', { name: 'Log In' }).click();
 
   await page.locator('input[type="email"]').fill(EMAIL);
   await page.locator('input[type="password"]').fill(PASSWORD);

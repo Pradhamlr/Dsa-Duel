@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sessions from '../components/Sessions'
 import { authFetch, clearAuthSession, logout } from '../utils/api'
-import TopicConstellation, { TOPIC_NODES } from '../components/TopicConstellation'
+import TopicConstellation from '../components/TopicConstellation'
+import { TOPIC_NODES } from '../data/topicNodes'
 
 const SunIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
