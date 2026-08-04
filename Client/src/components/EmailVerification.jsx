@@ -1,10 +1,62 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { API, storeAuthSession } from '../utils/api.js'
+
+const RESEND_COOLDOWN_SECONDS = 60
 
 export default function EmailVerification({ email, onVerificationSuccess, onBack }) {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+  const cooldownRef = useRef(null)
+
+  useEffect(() => {
+    return () => clearInterval(cooldownRef.current)
+  }, [])
+
+  const startCooldown = () => {
+    setCooldown(RESEND_COOLDOWN_SECONDS)
+    clearInterval(cooldownRef.current)
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  const handleResend = async () => {
+    setResendLoading(true)
+    setResendMessage('')
+    setError('')
+
+    try {
+      const res = await fetch(`${API}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not resend the code. Please try again shortly.')
+      }
+
+      setResendMessage(data.message)
+      startCooldown()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setResendLoading(false)
+    }
+  }
 
   const handleVerifyEmail = async (e) => {
     e.preventDefault()
@@ -65,17 +117,17 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
           style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
             color: '#ffffff',
-            padding: '6px 12px',
+            padding: '8px 20px',
             border: 'none',
-            borderRadius: 8,
-            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            borderRadius: 9999,
+            boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
             fontSize: '0.875rem',
-            fontWeight: '500',
+            fontWeight: '600',
             zIndex: 60,
             cursor: 'pointer'
           }}
         >
-          BACK
+          Back
         </button>
       </div>
 
@@ -136,7 +188,7 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
                 borderRadius: '10px',
                 fontWeight: '600',
                 border: 'none',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 marginTop: '24px',
                 opacity: loading ? '0.8' : '1'
@@ -157,7 +209,27 @@ export default function EmailVerification({ email, onVerificationSuccess, onBack
               ) : 'Verify Email'}
             </button>
           </form>
-          
+
+          {resendMessage && (
+            <div className="mt-6 p-4 bg-emerald-500/10 border-l-4 border-emerald-500 rounded-r-lg">
+              <p className="text-sm font-medium text-emerald-300">{resendMessage}</p>
+            </div>
+          )}
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-400">
+              Didn't get a code?{' '}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendLoading || cooldown > 0}
+                className="font-medium text-indigo-400 hover:text-indigo-300 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+              >
+                {resendLoading ? 'Sending...' : cooldown > 0 ? `Resend code (${cooldown}s)` : 'Resend code'}
+              </button>
+            </p>
+          </div>
+
           <style jsx>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }

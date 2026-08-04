@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, getMe, forgotPassword, verifyOTP, resetPassword, refreshToken, verifyEmail, logout, startGoogleOAuth, googleOAuthCallback } from '../controllers/authController.js';
+import { register, login, getMe, forgotPassword, resendVerification, verifyOTP, resetPassword, refreshToken, verifyEmail, logout, startGoogleOAuth, googleOAuthCallback } from '../controllers/authController.js';
 import { getSessions, revokeSession, revokeOtherSessions } from '../controllers/sessionController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import { loginRateLimit, registerRateLimit, forgotPasswordRateLimit, otpRateLimit } from '../middleware/rateLimitMiddleware.js';
@@ -12,6 +12,7 @@ router.post('/register', registerRateLimit, validateDto(registerDto), register);
 router.post('/login', loginRateLimit, validateDto(loginDto), login);
 router.get('/me', authMiddleware, getMe);
 router.post('/forgot-password', forgotPasswordRateLimit, validateDto(emailDto), forgotPassword);
+router.post('/resend-verification', forgotPasswordRateLimit, validateDto(emailDto), resendVerification);
 router.post('/verify-otp', otpRateLimit, validateDto(otpDto), verifyOTP);
 router.post('/reset-password', otpRateLimit, validateDto(resetPasswordDto), resetPassword);
 router.post('/refresh-token', refreshToken);

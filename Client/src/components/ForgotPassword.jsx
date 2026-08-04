@@ -144,17 +144,17 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
           style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
             color: '#ffffff',
-            padding: '6px 12px',
+            padding: '8px 20px',
             border: 'none',
-            borderRadius: 8,
-            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            borderRadius: 9999,
+            boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
             fontSize: '0.875rem',
-            fontWeight: '500',
+            fontWeight: '600',
             zIndex: 60,
             cursor: 'pointer'
           }}
         >
-          BACK TO LOGIN
+          Back to Login
         </button>
       </div>
 
@@ -164,7 +164,7 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
 
           {/* Step Indicator */}
           <div className="flex justify-center mb-8">
-            <div className="flex items-center w-64">
+            <div className="flex items-start w-64">
               {[1, 2, 3].map((stepNum, index) => (
                 <React.Fragment key={stepNum}>
                   <div className="flex flex-col items-center">
@@ -188,7 +188,11 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                     </span>
                   </div>
                   {index < 2 && (
-                    <div className="flex-1 h-0.5 mx-4 transition-all duration-300" style={{
+                    // mt-5 (20px) = half the circle's own height (w-10/h-10 = 40px) --
+                    // aligns this line to the circle's vertical center specifically,
+                    // since items-center on the row above would instead center it
+                    // against the taller circle+label column, sitting visibly too low.
+                    <div className="flex-1 h-0.5 mx-4 mt-5 transition-all duration-300" style={{
                       backgroundColor: step > stepNum ? '#4f46e5' : '#334155'
                     }} />
                   )}
@@ -259,7 +263,7 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                   borderRadius: '10px',
                   fontWeight: '600',
                   border: 'none',
-                  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                  boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   marginTop: '24px',
                   opacity: loading ? '0.8' : '1'
@@ -310,7 +314,7 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                   borderRadius: '10px',
                   fontWeight: '600',
                   border: 'none',
-                  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                  boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   marginTop: '24px',
                   opacity: loading ? '0.8' : '1'
@@ -393,7 +397,7 @@ export default function ForgotPassword({ onBack, onLoginRedirect }) {
                   borderRadius: '10px',
                   fontWeight: '600',
                   border: 'none',
-                  boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                  boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   marginTop: '24px',
                   opacity: loading ? '0.8' : '1'

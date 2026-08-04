@@ -23,6 +23,17 @@ const CheckSVG = ({ size = 12, color = '#fff' }) => (
   </svg>
 )
 
+// Google's real four-color "G" mark -- the standard asset Google's own branding
+// guidelines provide for sign-in buttons, not a generic/monochrome stand-in.
+const GoogleLogo = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+    <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/>
+    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+  </svg>
+)
+
 export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onForgotPassword }) {
   const { showError, showSuccess } = useToast()
   const [isLogin, setIsLogin] = useState(initialMode === 'login')
@@ -118,13 +129,20 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
   }
 
   return (
-    <div className="min-h-screen" style={{
+    <div className="min-h-screen relative overflow-hidden" style={{
       background: isLogin
         ? 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 55%, #0f172a 100%)'
         : 'linear-gradient(135deg, #3b0764 0%, #0f172a 55%, #0f172a 100%)'
     }}>
+      {/* Soft ambient glow behind the card -- the flat gradient alone left the space
+          above/below the form feeling empty; this gives the page some depth without
+          competing with the form itself. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
+      </div>
       {/* Header */}
-      <div className="flex justify-between items-center px-8 py-6 bg-gray-900/80 backdrop-blur-xl border-b border-white/10 shadow-sm">
+      <div className="relative z-10 flex justify-between items-center px-8 py-6 bg-gray-900/80 backdrop-blur-xl border-b border-white/10 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">D</span>
@@ -150,22 +168,22 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
           style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
             color: '#ffffff',
-            padding: '6px 12px',
+            padding: '8px 20px',
             border: 'none',
-            borderRadius: 8,
-            boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            borderRadius: 9999,
+            boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
             fontSize: '0.875rem',
-            fontWeight: '500',
+            fontWeight: '600',
             zIndex: 60,
             cursor: 'pointer'
           }}
         >
-          {isLogin ? 'SIGN UP' : 'SIGN IN'}
+          {isLogin ? 'Sign Up' : 'Sign In'}
         </button>
       </div>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center px-8 pt-12" style={{ minHeight: 'calc(100vh - 160px)' }}>
+      <div className="relative z-10 flex items-center justify-center px-8 py-12" style={{ minHeight: 'calc(100vh - 160px)' }}>
         <div className="bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-xl ring-1 ring-white/10 p-10 w-full max-w-md">
           <div className="text-center mb-8">
 
@@ -339,16 +357,26 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
                 <button
                   type="button"
                   onClick={onForgotPassword}
-                  // inline style so it's always slightly visible
+                  // Tailwind's hover:text-* utility loses here -- index.css's plain,
+                  // unlayered `button { color: var(--text) }` rule beats any Tailwind
+                  // utility class regardless of specificity (unlayered CSS always wins
+                  // over @layer'd rules). Same root cause as this file's documented
+                  // button-background gotcha, just for color -- driving it via inline
+                  // style + mouse handlers sidesteps it entirely, same as the header's
+                  // own LOGIN button already does. Also explicitly overriding
+                  // backdropFilter/borderRadius/boxShadow (base button {} sets a blur +
+                  // rounded corners, and its :hover rule adds a box-shadow, regardless
+                  // of the JS handlers below) -- without these, a faint blurred oval
+                  // stayed visible behind the text even with a transparent background,
+                  // since backdrop-filter blurs whatever's behind it, box or not.
                   style={{
-                    backgroundColor: '#1e293b',
-                    color: '#94a3b8',
-                    padding: '6px 8px',
-                    borderRadius: 6,
-                    border: 'none',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer'
+                    background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                    fontSize: '0.875rem', fontWeight: 500, color: '#818cf8',
+                    transition: 'color 150ms ease', backdropFilter: 'none', borderRadius: 0,
+                    boxShadow: 'none', transform: 'none'
                   }}
+                  onMouseEnter={(e) => { e.target.style.color = '#c084fc' }}
+                  onMouseLeave={(e) => { e.target.style.color = '#818cf8' }}
                 >
                   Forgot Password?
                 </button>
@@ -366,7 +394,7 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
                 borderRadius: '10px',
                 fontWeight: '600',
                 border: 'none',
-                boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 marginTop: '24px',
                 opacity: loading ? '0.8' : '1'
@@ -395,8 +423,9 @@ export default function Auth({ onAuthSuccess, initialMode = 'login', onBack, onF
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full px-4 py-3 border border-gray-700 rounded-xl bg-gray-800 text-gray-200 font-semibold shadow-sm hover:border-gray-600 hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-700 rounded-xl bg-gray-800 text-gray-200 font-semibold shadow-sm hover:border-gray-600 hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
+              <GoogleLogo size={18} />
               Continue with Google
             </button>
             <style jsx>{`

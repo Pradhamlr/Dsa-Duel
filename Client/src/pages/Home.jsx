@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sessions from '../components/Sessions'
 import { authFetch, clearAuthSession, logout } from '../utils/api'
+import TopicConstellation from '../components/TopicConstellation'
+import { TOPIC_NODES } from '../data/topicNodes'
 
 const SunIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -165,11 +167,11 @@ export default function Home(){
             style={{
               backgroundColor: '#1e293b',
               color: '#cbd5e1',
-              padding: '6px 12px',
+              padding: '8px 20px',
               border: '1px solid #334155',
-              borderRadius: '8px',
+              borderRadius: 9999,
               fontSize: '0.875rem',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
@@ -182,18 +184,18 @@ export default function Home(){
               e.target.style.borderColor = '#334155'
             }}
           >
-            MY PROBLEMS
+            My Problems
           </button>
           <button
             onClick={() => setShowSessions(true)}
             style={{
               backgroundColor: '#1e293b',
               color: '#cbd5e1',
-              padding: '6px 12px',
+              padding: '8px 20px',
               border: '1px solid #334155',
-              borderRadius: '8px',
+              borderRadius: 9999,
               fontSize: '0.875rem',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
@@ -206,7 +208,7 @@ export default function Home(){
               e.target.style.borderColor = '#334155'
             }}
           >
-            SESSIONS
+            Sessions
           </button>
           <button
             onClick={async () => {
@@ -216,16 +218,16 @@ export default function Home(){
             style={{
               background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)',
               color: '#ffffff',
-              padding: '6px 12px',
+              padding: '8px 20px',
               border: 'none',
-              borderRadius: '8px',
-              boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+              borderRadius: 9999,
+              boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
               fontSize: '0.875rem',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: 'pointer'
             }}
           >
-            LOGOUT
+            Logout
           </button>
         </div>
       </div>
@@ -350,7 +352,7 @@ export default function Home(){
                       borderRadius: '10px',
                       fontWeight: '600',
                       border: 'none',
-                      boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                      boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                       cursor: 'pointer'
                     }}
                   >
@@ -457,7 +459,7 @@ export default function Home(){
                       borderRadius: '10px',
                       fontWeight: '600',
                       border: 'none',
-                      boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                      boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                       cursor: 'pointer'
                     }}
                   >
@@ -488,10 +490,10 @@ export default function Home(){
                           setPool(p.id)
                           if (p.id && topic === 'Database') setTopic('All')
                         }}
-                        className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                        className={`px-4 py-2.5 rounded-full text-sm font-medium border transition-colors duration-150 ${
                           pool === p.id
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 scale-105'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:shadow-md hover:-translate-y-0.5'
+                            ? 'bg-indigo-600 border-indigo-500 text-white'
+                            : 'bg-gray-800 border-transparent text-gray-300 hover:border-gray-600'
                         }`}
                       >
                         {p.label}
@@ -516,13 +518,24 @@ export default function Home(){
                       placeholder="Search topics..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Enter selects the single matching topic outright -- only
+                        // meaningful when the search has narrowed it to exactly one,
+                        // otherwise Enter does nothing (no ambiguous "first match" pick).
+                        if (e.key !== 'Enter') return
+                        const term = searchTerm.trim().toLowerCase()
+                        if (!term) return
+                        const matches = TOPIC_NODES.filter(t =>
+                          !(pool && t.id === 'Database') && t.label.toLowerCase().includes(term)
+                        )
+                        if (matches.length === 1) setTopic(matches[0].id)
+                      }}
                       className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-800 text-gray-100 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
                     />
                   </div>
                   <button
                     onClick={() => {
-                      const topics = ['Array', 'LinkedList', 'Tree', 'Graph', 'String', 'DP', 'Stack', 'Queue', 'Matrix', 'Hashing', 'BinarySearch', 'TwoPointers', 'Math', 'Database', 'Other']
-                        .filter(t => !(pool && t === 'Database'))
+                      const topics = TOPIC_NODES.map(t => t.id).filter(id => !(pool && id === 'Database'))
                       const randomTopic = topics[Math.floor(Math.random() * topics.length)]
                       setTopic(randomTopic)
                     }}
@@ -532,67 +545,57 @@ export default function Home(){
                   </button>
                 </div>
 
-                {(() => {
-                  const allTopics = [
-                    { id: 'All', label: 'Any Topic', icon: 'All', category: 'Core' },
-                    { id: 'Array', label: 'Array', icon: '[]', category: 'Core' },
-                    { id: 'String', label: 'String', icon: 'Aa', category: 'Core' },
-                    { id: 'LinkedList', label: 'Linked List', icon: '->', category: 'Core' },
-                    { id: 'Tree', label: 'Tree', icon: 'T', category: 'Advanced' },
-                    { id: 'Graph', label: 'Graph', icon: 'G', category: 'Advanced' },
-                    { id: 'DP', label: 'Dynamic Programming', icon: 'DP', category: 'Advanced' },
-                    { id: 'BinarySearch', label: 'Binary Search', icon: 'BS', category: 'Advanced' },
-                    { id: 'Stack', label: 'Stack', icon: 'S', category: 'Specialized' },
-                    { id: 'Queue', label: 'Queue', icon: 'Q', category: 'Specialized' },
-                    { id: 'Matrix', label: 'Matrix', icon: 'Mx', category: 'Specialized' },
-                    { id: 'Hashing', label: 'Hash/Map', icon: '#', category: 'Specialized' },
-                    { id: 'TwoPointers', label: 'Two Pointers', icon: '<>', category: 'Specialized' },
-                    { id: 'Math', label: 'Math', icon: '123', category: 'Specialized' },
-                    { id: 'Database', label: 'Database', icon: 'DB', category: 'Specialized' },
-                    { id: 'Other', label: 'Other', icon: '...', category: 'Specialized' }
-                  ]
-                  
-                  const filteredTopics = allTopics
-                    // NeetCode's lists are pure algorithm/DS problems -- no SQL-style
-                    // problems in either list, so Database + a pool always yields 0
-                    // results. Hide it instead of letting the user hit a dead end.
-                    .filter(t => !(pool && t.id === 'Database'))
-                    .filter(t =>
-                      t.label.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                  
-                  const groupedTopics = filteredTopics.reduce((acc, topic) => {
-                    if (!acc[topic.category]) acc[topic.category] = []
-                    acc[topic.category].push(topic)
-                    return acc
-                  }, {})
-                  
-                  return Object.entries(groupedTopics).map(([category, topics]) => (
-                    <div key={category} className="mb-6">
-                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">{category}</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {topics.map(t => (
-                          <button
-                            key={t.id}
-                            onClick={() => setTopic(t.id)}
-                            className={`group relative flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                              topic === t.id
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 scale-105'
-                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:shadow-md hover:-translate-y-0.5'
-                            }`}
-                          >
-                            <span className="text-xs opacity-75">{t.icon}</span>
-                            <span>{t.label}</span>
-                            {topic === t.id && (
-                              <div className="absolute inset-0 rounded-full bg-white/20 animate-ping"></div>
-                            )}
-                          </button>
-                        ))}
+                <TopicConstellation topic={topic} setTopic={setTopic} pool={pool} searchTerm={searchTerm} />
+
+                {/* Mobile fallback (below md) -- the radial layout above needs real
+                    screen width to stay readable at full label length; a grouped pill
+                    list is the honest choice for narrow viewports rather than cramming
+                    a constellation into 375px. */}
+                <div className="md:hidden">
+                  {(() => {
+                    const allTopics = [
+                      { id: 'All', label: 'Any Topic', category: 'Core' },
+                      ...TOPIC_NODES
+                    ]
+
+                    const filteredTopics = allTopics
+                      // NeetCode's lists are pure algorithm/DS problems -- no SQL-style
+                      // problems in either list, so Database + a pool always yields 0
+                      // results. Hide it instead of letting the user hit a dead end.
+                      .filter(t => !(pool && t.id === 'Database'))
+                      .filter(t =>
+                        t.label.toLowerCase().includes(searchTerm.toLowerCase())
+                      )
+
+                    const groupedTopics = filteredTopics.reduce((acc, topic) => {
+                      if (!acc[topic.category]) acc[topic.category] = []
+                      acc[topic.category].push(topic)
+                      return acc
+                    }, {})
+
+                    return Object.entries(groupedTopics).map(([category, topics]) => (
+                      <div key={category} className="mb-6">
+                        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">{category}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {topics.map(t => (
+                            <button
+                              key={t.id}
+                              onClick={() => setTopic(t.id)}
+                              className={`px-4 py-2.5 rounded-full text-sm font-medium border transition-colors duration-150 ${
+                                topic === t.id
+                                  ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                  : 'bg-gray-800 border-transparent text-gray-300 hover:border-gray-600'
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))
-                })()}
-                
+                    ))
+                  })()}
+                </div>
+
                 <div className="mb-2"></div>
 
                 <div className="flex justify-between">
@@ -615,7 +618,7 @@ export default function Home(){
                       borderRadius: '10px',
                       fontWeight: '600',
                       border: 'none',
-                      boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                      boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                       cursor: 'pointer'
                     }}
                   >
@@ -770,7 +773,7 @@ export default function Home(){
                       borderRadius: '10px',
                       fontWeight: '600',
                       border: 'none',
-                      boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+                      boxShadow: '0 2px 10px rgba(99,102,241,0.18)',
                       cursor: loading ? 'default' : 'pointer',
                       opacity: loading ? '0.8' : '1',
                       display: 'flex',
