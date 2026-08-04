@@ -16,6 +16,7 @@ dotenv.config();
 const { default: app } = await import('./app.js');
 const { prisma } = await import('./utils/database.js');
 const { closeAllConnections } = await import('./services/contestEvents.js');
+const { logger } = await import('./utils/logger.js');
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
@@ -104,11 +105,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 // in a state nothing accounted for. Both cases now log clearly and go through the same
 // graceful-shutdown path, so the process manager (Render) restarts it cleanly instead.
 process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err)
+    logger.fatal({ err }, 'Uncaught Exception')
     gracefulShutdown('uncaughtException')
 })
 
 process.on('unhandledRejection', (reason) => {
-    console.error('Unhandled Rejection:', reason)
+    logger.fatal({ err: reason }, 'Unhandled Rejection')
     gracefulShutdown('unhandledRejection')
 })

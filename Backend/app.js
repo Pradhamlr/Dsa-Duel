@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import pinoHttp from 'pino-http';
 import errorHandler from './middleware/errorHandler.js';
 import { prisma } from './utils/database.js';
+import { logger } from './utils/logger.js';
 
 import authRoutes from './routes/auth.js';
 import contestRoutes from './routes/contest.js';
@@ -42,6 +44,21 @@ const corsOptions = {
 
 // Trust Render's reverse proxy so req.ip is the real client IP, not the proxy's
 app.set('trust proxy', 1);
+
+// One structured line per request (method, path, status, duration). userId gets added
+// for authenticated routes via req.log.setBindings() in authMiddleware.js itself, not
+// a customProps function here -- pino-http calls customProps at two different points
+// in the request lifecycle (early binding, then again at response-finish) and
+// concatenates pino's pre-serialized binding fragments rather than merging them,
+// which produced a literal duplicate "userId" key in the output JSON when tried
+// (confirmed with a standalone repro, not assumed). setBindings() mutates the same
+// child logger once, at the one point auth actually succeeds, sidestepping that
+// entirely. /health is excluded so Render's own periodic health-check polling doesn't
+// drown out real request signal.
+app.use(pinoHttp({
+  logger,
+  autoLogging: { ignore: (req) => req.url === '/health' }
+}));
 
 // Middleware
 app.use(helmet());

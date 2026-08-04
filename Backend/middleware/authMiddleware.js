@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import AppError from '../utils/AppError.js';
 import { redis, ensureRedisConnected } from '../utils/redisClient.js';
+import { logger } from '../utils/logger.js';
 
 // A revoked session's already-issued access tokens are otherwise valid until their own
 // 15-minute JWT expiry, since verifying a stateless JWT never touches the DB. This
@@ -14,7 +15,7 @@ const isSessionDenylisted = async (sid) => {
     await ensureRedisConnected();
     return (await redis.exists(`denylist:session:${sid}`)) === 1;
   } catch (err) {
-    console.error('Denylist check failed, failing open:', err.message);
+    logger.warn({ event: 'redis_failopen', check: 'session_denylist', err: err.message }, 'Denylist check failed, failing open');
     return false;
   }
 };
@@ -39,6 +40,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = decoded;
+    req.log.setBindings({ userId: decoded.userId });
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -71,6 +73,7 @@ export const sseAuthMiddleware = async (req, res, next) => {
     }
 
     req.user = decoded;
+    req.log.setBindings({ userId: decoded.userId });
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

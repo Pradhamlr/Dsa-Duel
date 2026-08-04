@@ -596,7 +596,7 @@ export const googleOAuthCallback = asyncHandler(async (req, res) => {
       user: result.user
     }));
   } catch (err) {
-    console.error('Google OAuth callback failed:', err);
+    req.log.error({ err }, 'Google OAuth callback failed');
     return res.redirect(buildOAuthErrorRedirect('GOOGLE_OAUTH_FAILED'));
   }
 });
