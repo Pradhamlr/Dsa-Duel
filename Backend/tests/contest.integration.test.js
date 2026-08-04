@@ -284,3 +284,121 @@ describe('leetcode verification', () => {
     expect(res.body.verified).toBe(false);
   });
 });
+
+describe('hand-picked custom contests', () => {
+  it('rejects hand-picking more problems than the total problem count', async () => {
+    await createVerifiedUser('overpick@example.com');
+    const token = await loginAndGetToken('overpick@example.com');
+    const problems = await seedProblems(prisma, 5, { difficulty: 'Easy' });
+
+    const res = await authed(token)(request(app).post('/create-contest')).send({
+      numProblems: 3,
+      difficulty: 'Easy',
+      selectedTopics: [],
+      handPickedProblemIds: problems.slice(0, 4).map((p) => p.id)
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('rejects a hand-picked id that does not exist', async () => {
+    await createVerifiedUser('badid@example.com');
+    const token = await loginAndGetToken('badid@example.com');
+    await seedProblems(prisma, 5, { difficulty: 'Easy' });
+
+    const res = await authed(token)(request(app).post('/create-contest')).send({
+      numProblems: 3,
+      difficulty: 'Easy',
+      selectedTopics: [],
+      handPickedProblemIds: ['this-problem-id-does-not-exist']
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('includes the hand-picked problem exactly once and fills the rest via auto-select, with no duplicates', async () => {
+    await createVerifiedUser('handpick@example.com');
+    const token = await loginAndGetToken('handpick@example.com');
+    const problems = await seedProblems(prisma, 6, { difficulty: 'Easy' });
+    const handPicked = problems[0];
+
+    const { body: { contestId } } = await authed(token)(request(app).post('/create-contest')).send({
+      numProblems: 3,
+      difficulty: 'Easy',
+      selectedTopics: [],
+      handPickedProblemIds: [handPicked.id]
+    });
+
+    const startRes = await authed(token)(request(app).post(`/contest/${contestId}/start`)).send({});
+    expect(startRes.status).toBe(200);
+
+    const finalProblems = startRes.body.contest.problems;
+    expect(finalProblems).toHaveLength(3);
+    // Hand-picked problem placed first, matching startContest's [...handPicked, ...autoFilled] order.
+    expect(finalProblems[0].slug).toBe(handPicked.leetcodeId);
+
+    const slugs = finalProblems.map((p) => p.slug);
+    expect(new Set(slugs).size).toBe(3); // no duplicates -- the auto-fill correctly excluded the hand-picked one
+
+    // Stored at creation time, not resolved later -- confirm directly against the DB
+    // rather than the API response, since buildContestResponse doesn't expose this
+    // internal field to the client.
+    const contestRow = await prisma.contest.findUnique({ where: { id: contestId } });
+    expect(contestRow.handPickedProblemIds).toEqual([handPicked.id]);
+  });
+
+  it('creates a contest that is entirely hand-picked, with no auto-fill call needed', async () => {
+    await createVerifiedUser('fullhandpick@example.com');
+    const token = await loginAndGetToken('fullhandpick@example.com');
+    const problems = await seedProblems(prisma, 3, { difficulty: 'Easy' });
+
+    const { body: { contestId } } = await authed(token)(request(app).post('/create-contest')).send({
+      numProblems: 3,
+      difficulty: 'Easy',
+      selectedTopics: [],
+      handPickedProblemIds: problems.map((p) => p.id)
+    });
+
+    const startRes = await authed(token)(request(app).post(`/contest/${contestId}/start`)).send({});
+    expect(startRes.status).toBe(200);
+    expect(startRes.body.contest.problems).toHaveLength(3);
+    const slugs = startRes.body.contest.problems.map((p) => p.slug).sort();
+    expect(slugs).toEqual(problems.map((p) => p.leetcodeId).sort());
+  });
+});
+
+describe('problem search', () => {
+  it('matches by title, case-insensitively, and reports the searching user\'s own solve status', async () => {
+    const user = await createVerifiedUser('searcher@example.com');
+    const token = await loginAndGetToken('searcher@example.com');
+    const problems = await seedProblems(prisma, 3, { difficulty: 'Easy' });
+    await prisma.problem.update({ where: { id: problems[0].id }, data: { title: 'Two Sum' } });
+    await prisma.problem.update({ where: { id: problems[1].id }, data: { title: 'Three Sum' } });
+    await prisma.solvedProblem.create({
+      data: { userId: user.id, problemId: problems[0].id, status: 'solved', lastInteractionAt: new Date() }
+    });
+
+    const res = await authed(token)(request(app).get('/problems/search?q=sum'));
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toHaveLength(2);
+
+    const twoSum = res.body.rows.find((r) => r.title === 'Two Sum');
+    expect(twoSum.yourStatus).toBe('solved');
+    const threeSum = res.body.rows.find((r) => r.title === 'Three Sum');
+    expect(threeSum.yourStatus).toBeNull();
+  });
+
+  it('returns nothing for a query under the 2-character floor, without hitting the DB', async () => {
+    await createVerifiedUser('shortquery@example.com');
+    const token = await loginAndGetToken('shortquery@example.com');
+    await seedProblems(prisma, 3, { difficulty: 'Easy' });
+
+    const res = await authed(token)(request(app).get('/problems/search?q=a'));
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toEqual([]);
+  });
+
+  it('requires authentication', async () => {
+    const res = await request(app).get('/problems/search?q=array');
+    expect(res.status).toBe(401);
+  });
+});

@@ -111,6 +111,51 @@ export const getProblemStats = async (req, res) => {
   }
 };
 
+// Powers hand-picking specific problems into a custom contest (createContest's
+// handPickedProblemIds). Plain case-insensitive substring match on title -- the
+// catalog is only ~2,458 rows, nowhere near enough to need pg_trgm/full-text search
+// infrastructure for what's really a small personal-scale lookup. yourStatus is scoped
+// to the searching user's own solve history only, not any contest's roster -- hand-
+// picking happens during contest creation, before the contest (and so its roster)
+// exists, so a roster-based signal genuinely isn't available yet at this point.
+export const searchProblems = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const q = (req.query.q || '').trim()
+    if (q.length < 2) return res.json({ rows: [] })
+
+    const result = await withPrisma(async (prisma) => {
+      const problems = await prisma.problem.findMany({
+        where: { title: { contains: q, mode: 'insensitive' } },
+        select: { id: true, title: true, difficulty: true, finalTags: true, judgeSupported: true, leetcodeUrl: true },
+        take: 20,
+        orderBy: { title: 'asc' }
+      })
+
+      const statusRows = await prisma.solvedProblem.findMany({
+        where: { userId, problemId: { in: problems.map((p) => p.id) } },
+        select: { problemId: true, status: true }
+      })
+      const statusByProblemId = new Map(statusRows.map((r) => [r.problemId, r.status]))
+
+      return problems.map((p) => ({
+        id: p.id,
+        title: p.title,
+        difficulty: p.difficulty,
+        finalTags: p.finalTags,
+        judgeSupported: p.judgeSupported,
+        url: p.leetcodeUrl,
+        yourStatus: statusByProblemId.get(p.id) || null
+      }))
+    })
+
+    res.json({ rows: result })
+  } catch (err) {
+    console.error('searchProblems error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
 // Scoped to the caller's own userId only -- never accepts a target user, so there's no
 // way to wipe anyone else's history.
 export const clearSolvedProblems = async (req, res) => {

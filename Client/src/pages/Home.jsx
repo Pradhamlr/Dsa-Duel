@@ -37,6 +37,57 @@ export default function Home(){
   const [createdLink, setCreatedLink] = useState('')
   const [showSessions, setShowSessions] = useState(false)
 
+  // Hand-picking specific problems into the contest -- a deliberate override of the
+  // difficulty/topic/pool filters above, not governed by them (same "additional, not a
+  // replacement" precedent as the NeetCode pool). Kept separate from `searchTerm`
+  // (topic search) and `TOPIC_NODES` entirely -- this searches real Problem rows, not
+  // the fixed topic list.
+  const [showHandPick, setShowHandPick] = useState(false)
+  const [handPickQuery, setHandPickQuery] = useState('')
+  const [handPickResults, setHandPickResults] = useState([])
+  const [handPickSearching, setHandPickSearching] = useState(false)
+  const [handPicked, setHandPicked] = useState([])
+
+  // Debounced live search -- waits for a pause in typing rather than firing a request
+  // per keystroke. 2-char minimum matches the backend's own floor (searchProblems
+  // no-ops below that), so this never fires a request the server would just discard.
+  useEffect(() => {
+    const term = handPickQuery.trim()
+    if (term.length < 2) {
+      setHandPickResults([])
+      return
+    }
+    setHandPickSearching(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await authFetch(`/problems/search?q=${encodeURIComponent(term)}`)
+        const data = await res.json()
+        setHandPickResults(res.ok ? (data.rows || []) : [])
+      } catch {
+        setHandPickResults([])
+      } finally {
+        setHandPickSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [handPickQuery])
+
+  // If the creator goes back to Step 1 and lowers the problem count below what's
+  // already hand-picked, trim from the end rather than silently sending an
+  // over-the-limit list the DTO would just reject at submit time.
+  useEffect(() => {
+    setHandPicked((prev) => (prev.length > Number(num) ? prev.slice(0, Number(num)) : prev))
+  }, [num])
+
+  const togglePicked = (problem) => {
+    setHandPicked((prev) => {
+      const alreadyPicked = prev.some((p) => p.id === problem.id)
+      if (alreadyPicked) return prev.filter((p) => p.id !== problem.id)
+      if (prev.length >= Number(num)) return prev // slot cap enforced silently -- the UI already disables the add button at this point
+      return [...prev, problem]
+    })
+  }
+
   // Verify user exists on mount
   useEffect(() => {
     const verifyUserExists = async () => {
@@ -72,12 +123,13 @@ export default function Home(){
       
       const res = await authFetch('/create-contest', {
         method: 'POST',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           numProblems: Number(num),
           difficulty,
           selectedTopics: topic !== 'All' ? [topic] : [],
           pool,
-          duration: Number(durationMin) * 60
+          duration: Number(durationMin) * 60,
+          handPickedProblemIds: handPicked.map((p) => p.id)
         })
       })
 
@@ -504,6 +556,121 @@ export default function Home(){
                     <p className="text-xs text-gray-500 mt-2">
                       Still combined with your difficulty choice from the previous step and any topic below.
                     </p>
+                  )}
+                </div>
+
+                {/* Hand-pick specific problems -- these bypass the difficulty/topic/pool
+                    filters entirely; the remaining slots still fill from those settings
+                    at Start. Collapsed by default so it doesn't compete with the primary
+                    topic-selection UI below.
+                    backdropFilter/borderRadius/boxShadow explicitly overridden, not just
+                    background -- index.css's plain, unlayered `button {}` rule sets a
+                    blur + rounded corners that survive a bare `background: transparent`
+                    override (same CSS-layering gotcha already hit and fixed on Auth.jsx's
+                    "Forgot Password?" button -- unlayered CSS beats @layer'd Tailwind
+                    utilities regardless of specificity, and backdrop-filter blurs
+                    whatever's behind it even with no background color of its own). */}
+                <div className="mb-8">
+                  <button
+                    type="button"
+                    onClick={() => setShowHandPick(!showHandPick)}
+                    className="flex items-center gap-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                    style={{
+                      background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                      backdropFilter: 'none', borderRadius: 0, boxShadow: 'none'
+                    }}
+                  >
+                    <span>{showHandPick ? '−' : '+'}</span>
+                    Hand-pick specific problems
+                    {handPicked.length > 0 && <span className="text-gray-500">({handPicked.length}/{num} picked)</span>}
+                  </button>
+
+                  {showHandPick && (
+                    <div className="mt-4 p-5 bg-gray-800/40 rounded-xl border border-white/10">
+                      <input
+                        type="text"
+                        placeholder="Search problems by title..."
+                        value={handPickQuery}
+                        onChange={(e) => setHandPickQuery(e.target.value)}
+                        className="w-full px-4 py-2.5 text-sm bg-gray-800 text-gray-100 border border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all mb-3"
+                      />
+
+                      {handPickSearching && <p className="text-xs text-gray-500 mb-2">Searching...</p>}
+
+                      {handPickResults.length > 0 && (
+                        <div className="max-h-64 overflow-y-auto space-y-1.5 mb-4">
+                          {handPickResults.map((p) => {
+                            const isPicked = handPicked.some((hp) => hp.id === p.id)
+                            const atCap = !isPicked && handPicked.length >= Number(num)
+                            const difficultyStyle = p.difficulty === 'Easy'
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : p.difficulty === 'Medium'
+                              ? 'bg-amber-500/10 text-amber-400'
+                              : 'bg-gray-700 text-gray-300'
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => togglePicked(p)}
+                                disabled={atCap}
+                                className={`w-full text-left flex items-center justify-between gap-3 px-3 py-2 transition-colors ${atCap ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                // Inline, not Tailwind bg-*/border-*/rounded-* classes -- same
+                                // codebase-wide convention as Contest.jsx's neutralBtnStyle/
+                                // CodeEditor.jsx's activeTabStyle, for the same reason: index.css's
+                                // plain, unlayered `button {}` rule beats @layer'd Tailwind
+                                // utilities regardless of specificity, so those classes would
+                                // silently lose to it exactly like the toggle button above did.
+                                style={{
+                                  cursor: atCap ? 'not-allowed' : 'pointer',
+                                  borderRadius: 8,
+                                  border: `1px solid ${isPicked ? '#6366f1' : 'transparent'}`,
+                                  backgroundColor: isPicked ? 'rgba(79,70,229,0.2)' : '#111827',
+                                  backdropFilter: 'none',
+                                  boxShadow: 'none'
+                                }}
+                                onMouseEnter={(e) => { if (!isPicked && !atCap) e.currentTarget.style.borderColor = '#4b5563' }}
+                                onMouseLeave={(e) => { if (!isPicked) e.currentTarget.style.borderColor = 'transparent' }}
+                              >
+                                <div className="min-w-0">
+                                  <div className="text-sm text-gray-100 truncate">{p.title}</div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-[11px] px-2 py-0.5 rounded-full ${difficultyStyle}`}>{p.difficulty}</span>
+                                    {p.yourStatus === 'solved' && <span className="text-[11px] text-emerald-400">You solved this before</span>}
+                                    {p.yourStatus === 'attempted' && <span className="text-[11px] text-amber-400">Attempted before</span>}
+                                  </div>
+                                </div>
+                                <span className="text-xs text-indigo-400 flex-shrink-0">{isPicked ? 'Remove' : 'Add'}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {handPicked.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Picked ({handPicked.length}/{num})</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {handPicked.map((p) => (
+                              <span key={p.id} className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs bg-indigo-600/20 border border-indigo-500 text-gray-100">
+                                {p.title}
+                                <button
+                                  type="button"
+                                  onClick={() => togglePicked(p)}
+                                  aria-label={`Remove ${p.title}`}
+                                  className="text-indigo-300 hover:text-white"
+                                  style={{
+                                    background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                                    backdropFilter: 'none', borderRadius: 0, boxShadow: 'none'
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 

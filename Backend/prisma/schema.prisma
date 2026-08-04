@@ -65,6 +65,12 @@ model Contest {
   difficulty      String
   selectedTopics  String[] @default([])
   pool            String?
+  // Fixed at creation time, unlike the settings above -- hand-picked problems are a
+  // deliberate creator choice, not something startContest's tiered fallback should
+  // ever second-guess or exclude based on roster solve history. startContest fills the
+  // remaining numProblems - length(handPickedProblemIds) slots via the normal tiered
+  // selection, excluding these ids so none of them can be picked a second time.
+  handPickedProblemIds String[] @default([])
   // Nullable: settings are stored at create time, but the actual problem set isn't
   // chosen until startContest runs (Phase 4b -- deferred selection using the SSE
   // roster's SolvedProblem history). Empty/null before startTime is set.
