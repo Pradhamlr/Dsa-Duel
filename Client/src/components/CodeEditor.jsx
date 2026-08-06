@@ -35,7 +35,7 @@ const formatExampleInput = (input) => {
   return Object.entries(input).map(([key, value]) => `${key} = ${JSON.stringify(value)}`).join(', ')
 }
 
-export default function CodeEditor({ problem, contestId, problemIndex, onClose, onSolved }) {
+export default function CodeEditor({ problem, contestId, problemIndex, onClose, onContestUpdate }) {
   const [language, setLanguage] = useState('java')
   const [codeByLanguage, setCodeByLanguage] = useState(() => ({
     java: problem.codeSnippets?.java || '',
@@ -93,8 +93,11 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
       const data = await submitCode(contestId, problemIndex, language, codeByLanguage[language])
       setVerdict(data.verdict)
       setTestResults(data.testResults || null)
-      if (data.verdict === 'accepted' && data.contest && onSolved) {
-        onSolved(data.contest)
+      // A non-full-pass Submit now also earns partial credit toward standings (best-
+      // ever, computed server-side), so the parent's contest state needs refreshing
+      // either way, not just on a full accept.
+      if (data.contest && onContestUpdate) {
+        onContestUpdate(data.contest)
       }
       window.dispatchEvent(new CustomEvent('show-toast', {
         detail: {

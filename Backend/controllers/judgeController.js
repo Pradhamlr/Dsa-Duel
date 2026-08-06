@@ -3,7 +3,7 @@ import { getLanguageId, submitToJudge0 } from '../services/judgeClient.js';
 import { generateJavaProgram, checkSignatureSupported } from '../utils/javaDriverGenerator.js';
 import { generateCppProgram } from '../utils/cppDriverGenerator.js';
 import { parseJudgeOutput } from '../utils/judgeOutputParser.js';
-import { markResultSolved, recordProblemInteraction, buildContestResponse } from './contestController.js';
+import { markResultSolved, upsertPartialResult, recordProblemInteraction, buildContestResponse } from './contestController.js';
 import { broadcastContestUpdate } from '../services/contestEvents.js';
 
 // Output parsing is identical for every language (same wire format), so both drivers
@@ -97,8 +97,13 @@ const runOrSubmit = async (req, res, { isSubmit }) => {
 
       // A real Submit that didn't pass still counts as engaging with this problem --
       // Run doesn't reach here at all (isSubmit only), matching the existing
-      // Submission-only-on-Submit precedent.
+      // Submission-only-on-Submit precedent. It also now earns partial credit toward
+      // standings (best-ever, never downgrades a better score already on file), so the
+      // updated contest state needs to go out too, not just on a full pass.
+      const testCasesPassed = testResults.filter((t) => t.passed).length;
+      await upsertPartialResult(prisma, { contestId: id, userId, problemIndex, testCasesPassed, testCasesTotal: testResults.length });
       await recordProblemInteraction(prisma, { userId, slug: problemSnapshot.slug, status: 'attempted' });
+      return { verdict, testResults, contest: await buildContestResponse(prisma, contest) };
     }
 
     return { verdict, testResults };

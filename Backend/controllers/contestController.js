@@ -51,14 +51,44 @@ export const markResultSolved = async (prisma, { contestId, userId, problemIndex
   await recordProblemInteraction(prisma, { userId, slug, status: 'solved' });
 };
 
+// Partial credit from a judge Submit that didn't fully pass. Only ever called for
+// 'judge' -- manual mark and LeetCode verify have no test-case concept, they're
+// binary via markResultSolved above. Best-ever: a later, worse resubmission never
+// overwrites a better score already on file, same philosophy as
+// recordProblemInteraction's existing "never downgrade solved back to attempted"
+// rule, extended to a numeric score. A prior full solve (solvedAt set) always wins
+// outright and is left untouched here.
+export const upsertPartialResult = async (prisma, { contestId, userId, problemIndex, testCasesPassed, testCasesTotal }) => {
+  const existing = await prisma.result.findUnique({
+    where: { contestId_userId_problemIndex: { contestId, userId, problemIndex } }
+  });
+
+  if (existing?.solvedAt) return;
+  if (existing && existing.testCasesPassed != null && existing.testCasesPassed >= testCasesPassed) return;
+
+  await prisma.result.upsert({
+    where: { contestId_userId_problemIndex: { contestId, userId, problemIndex } },
+    update: { testCasesPassed, testCasesTotal, verifiedVia: 'judge' },
+    create: { contestId, userId, problemIndex, testCasesPassed, testCasesTotal, verifiedVia: 'judge' }
+  });
+};
+
 export const buildContestResponse = async (prisma, contest) => {
   const rows = await prisma.result.findMany({ where: { contestId: contest.id } });
   const results = {};
   const userIds = new Set();
   for (const r of rows) {
     userIds.add(r.userId);
-    results[r.userId] = results[r.userId] || { solved: {} };
-    if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true;
+    results[r.userId] = results[r.userId] || { solved: {}, solvedAt: {}, score: {}, testCasesPassed: {}, testCasesTotal: {} };
+    if (r.solvedAt) {
+      results[r.userId].solved[r.problemIndex] = true;
+      results[r.userId].solvedAt[r.problemIndex] = r.solvedAt.getTime();
+      results[r.userId].score[r.problemIndex] = 1;
+    } else if (r.testCasesPassed != null && r.testCasesTotal) {
+      results[r.userId].score[r.problemIndex] = r.testCasesPassed / r.testCasesTotal;
+      results[r.userId].testCasesPassed[r.problemIndex] = r.testCasesPassed;
+      results[r.userId].testCasesTotal[r.problemIndex] = r.testCasesTotal;
+    }
   }
 
   // Without this, every live SSE-pushed update showed raw userIds in Live Standings
@@ -177,8 +207,16 @@ export const getContest = async (req, res) => {
       const userIds = new Set()
       for (const r of rows) {
         userIds.add(r.userId)
-        results[r.userId] = results[r.userId] || { solved: {} }
-        if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
+        results[r.userId] = results[r.userId] || { solved: {}, solvedAt: {}, score: {}, testCasesPassed: {}, testCasesTotal: {} }
+        if (r.solvedAt) {
+          results[r.userId].solved[r.problemIndex] = true
+          results[r.userId].solvedAt[r.problemIndex] = r.solvedAt.getTime()
+          results[r.userId].score[r.problemIndex] = 1
+        } else if (r.testCasesPassed != null && r.testCasesTotal) {
+          results[r.userId].score[r.problemIndex] = r.testCasesPassed / r.testCasesTotal
+          results[r.userId].testCasesPassed[r.problemIndex] = r.testCasesPassed
+          results[r.userId].testCasesTotal[r.problemIndex] = r.testCasesTotal
+        }
       }
 
       let nameMap = {}
