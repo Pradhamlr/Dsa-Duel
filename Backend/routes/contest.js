@@ -1,6 +1,6 @@
 import express from 'express';
 import { createContest, getContest, startContest, getContestStatus, markProblem, verifyLeetCodeSubmission, getProblemDetails, contestEvents } from '../controllers/contestController.js';
-import { runCode, submitCode } from '../controllers/judgeController.js';
+import { runCode, submitCode, stressTest } from '../controllers/judgeController.js';
 import authMiddleware, { sseAuthMiddleware } from '../middleware/authMiddleware.js';
 import { verifyLeetCodeRateLimit, judgeRateLimit, createContestRateLimit } from '../middleware/rateLimitMiddleware.js';
 import validateDto from '../middleware/validateDto.js';
@@ -18,5 +18,6 @@ router.post('/:id/mark', authMiddleware, validateDto(markProblemDto), markProble
 router.post('/:id/verify-leetcode', authMiddleware, verifyLeetCodeRateLimit, validateDto(problemIndexDto), verifyLeetCodeSubmission);
 router.post('/:id/run', authMiddleware, judgeRateLimit, validateDto(runSubmitDto), runCode);
 router.post('/:id/submit', authMiddleware, judgeRateLimit, validateDto(runSubmitDto), submitCode);
+router.post('/:id/stress-test', authMiddleware, judgeRateLimit, validateDto(runSubmitDto), stressTest);
 
 export default router;

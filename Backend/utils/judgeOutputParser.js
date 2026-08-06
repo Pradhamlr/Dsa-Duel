@@ -25,3 +25,29 @@ export function parseJudgeOutput(stdout, testCases) {
     return { input: tc.input, expectedOutput: tc.output, actualOutput: actual, passed };
   });
 }
+
+// Boundary/stress cases (see boundaryTestGenerator.js) have no expected output to
+// compare against -- there's no reference solution, only a synthetic edge-case input.
+// So this checks for a crash on this specific case (a caught runtime exception, or a
+// print step that never produced a parseable line) rather than correctness. Same wire
+// format, deliberately not reusing parseJudgeOutput's `passed` field here -- that name
+// implies a correctness verdict this data was never meant to carry.
+export function parseStressTestOutput(stdout, testCases) {
+  const lines = (stdout || '').split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+
+  return testCases.map((tc, i) => {
+    const line = lines[i];
+    if (line === undefined) {
+      return { label: tc.label, input: tc.input, actualOutput: null, crashed: true, error: 'No output produced for this test case' };
+    }
+    if (line.startsWith('__JUDGE_ERROR__:')) {
+      return { label: tc.label, input: tc.input, actualOutput: null, crashed: true, error: line.slice('__JUDGE_ERROR__:'.length) };
+    }
+    try {
+      const actual = JSON.parse(line);
+      return { label: tc.label, input: tc.input, actualOutput: actual, crashed: false };
+    } catch {
+      return { label: tc.label, input: tc.input, actualOutput: line, crashed: true, error: 'Could not parse output' };
+    }
+  });
+}

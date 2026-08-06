@@ -1,6 +1,11 @@
 import { withPrisma } from '../utils/database.js';
+import { bucketByDay, computeStreaks, buildDailyHistory } from '../utils/streakCalculator.js';
 
 const LEETCODE_USERNAME_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
+
+// 12 weeks -- fits a GitHub-style contribution grid (12 columns x 7 rows) without
+// being either a sparse sliver or an overwhelming wall of cells.
+const HISTORY_DAYS = 84;
 
 export const updateUser = async (req, res) => {
   try {
@@ -107,6 +112,50 @@ export const getProblemStats = async (req, res) => {
     res.json(result)
   } catch (err) {
     console.error('getProblemStats error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
+// Solve streak, per-topic strength, and a daily activity history for the revision
+// tab's analytics section -- all three derived from the same SolvedProblem rows
+// already backing getSolvedProblems/getProblemStats, no new tracking table needed.
+export const getAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const result = await withPrisma(async (prisma) => {
+      const [solvedRows, catalogTagRows] = await Promise.all([
+        prisma.solvedProblem.findMany({
+          where: { userId, status: 'solved' },
+          select: { lastInteractionAt: true, problem: { select: { finalTags: true } } }
+        }),
+        prisma.problem.findMany({ select: { finalTags: true } })
+      ])
+
+      const dayCounts = bucketByDay(solvedRows.map((r) => r.lastInteractionAt))
+      const streak = computeStreaks(dayCounts)
+      const history = buildDailyHistory(dayCounts, HISTORY_DAYS)
+
+      // Array tag columns need an in-memory tally -- Prisma has no group-by-array-
+      // element aggregate, and the catalog (~2,458 rows) is nowhere near enough to
+      // need one, same reasoning as the plain-substring problem search.
+      const totalByTag = new Map()
+      for (const row of catalogTagRows) {
+        for (const tag of row.finalTags) totalByTag.set(tag, (totalByTag.get(tag) || 0) + 1)
+      }
+      const solvedByTag = new Map()
+      for (const row of solvedRows) {
+        for (const tag of row.problem.finalTags) solvedByTag.set(tag, (solvedByTag.get(tag) || 0) + 1)
+      }
+      const topicStrength = Array.from(totalByTag.entries())
+        .map(([tag, total]) => ({ tag, solved: solvedByTag.get(tag) || 0, total }))
+        .sort((a, b) => b.solved - a.solved || b.total - a.total)
+
+      return { streak, topicStrength, history }
+    })
+
+    res.json(result)
+  } catch (err) {
+    console.error('getAnalytics error', err)
     res.status(500).json({ error: 'failed' })
   }
 };
