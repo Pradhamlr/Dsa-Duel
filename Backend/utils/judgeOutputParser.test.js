@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { parseJudgeOutput } from './judgeOutputParser.js';
+import { parseJudgeOutput, parseStressTestOutput } from './judgeOutputParser.js';
 
 const tc = (input, output) => ({ input, output });
+const stc = (label, input) => ({ label, input });
 
 describe('parseJudgeOutput', () => {
   it('parses a passing scalar result', () => {
@@ -53,5 +54,34 @@ describe('parseJudgeOutput', () => {
     expect(results[0].passed).toBe(true);
     expect(results[1].error).toBe('boom');
     expect(results[2].passed).toBe(true);
+  });
+});
+
+describe('parseStressTestOutput', () => {
+  it('reports a clean run as not crashed, with no expectedOutput/passed fields at all', () => {
+    const [result] = parseStressTestOutput('[0,1]\n', [stc('Single element', { nums: [1, 2], target: 3 })]);
+    expect(result).toEqual({ label: 'Single element', input: { nums: [1, 2], target: 3 }, actualOutput: [0, 1], crashed: false });
+  });
+
+  it('flags a caught runtime exception as a crash, distinct from a correctness failure', () => {
+    const [result] = parseStressTestOutput('__JUDGE_ERROR__:java.lang.NullPointerException\n', [stc('Empty / zero inputs', { nums: [] })]);
+    expect(result.crashed).toBe(true);
+    expect(result.error).toBe('java.lang.NullPointerException');
+  });
+
+  it('flags missing output and unparseable output as crashes too', () => {
+    const [missing] = parseStressTestOutput('', [stc('Large input', {})]);
+    expect(missing.crashed).toBe(true);
+    expect(missing.error).toBe('No output produced for this test case');
+
+    const [malformed] = parseStressTestOutput('not json\n', [stc('Large input', {})]);
+    expect(malformed.crashed).toBe(true);
+    expect(malformed.actualOutput).toBe('not json');
+  });
+
+  it('parses one line per stress case, in order, preserving each label', () => {
+    const results = parseStressTestOutput('1\n2\n', [stc('Empty / zero inputs', {}), stc('Single element', {})]);
+    expect(results.map((r) => r.label)).toEqual(['Empty / zero inputs', 'Single element']);
+    expect(results.every((r) => !r.crashed)).toBe(true);
   });
 });

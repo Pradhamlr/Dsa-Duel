@@ -65,6 +65,12 @@ model Contest {
   difficulty      String
   selectedTopics  String[] @default([])
   pool            String?
+  // Fixed at creation time, unlike the settings above -- hand-picked problems are a
+  // deliberate creator choice, not something startContest's tiered fallback should
+  // ever second-guess or exclude based on roster solve history. startContest fills the
+  // remaining numProblems - length(handPickedProblemIds) slots via the normal tiered
+  // selection, excluding these ids so none of them can be picked a second time.
+  handPickedProblemIds String[] @default([])
   // Nullable: settings are stored at create time, but the actual problem set isn't
   // chosen until startContest runs (Phase 4b -- deferred selection using the SSE
   // roster's SolvedProblem history). Empty/null before startTime is set.
@@ -86,6 +92,13 @@ model Result {
   user        User     @relation(fields: [userId], references: [id])
   problemIndex Int
   solvedAt    DateTime?
+  // Partial credit from a judge Submit that didn't fully pass -- null for manual/
+  // LeetCode-verified rows and for any row where solvedAt is set (a full solve is
+  // always worth 1.0 regardless of test case count, these are never populated
+  // alongside solvedAt). Best-ever: a later, worse resubmission never overwrites a
+  // better one already on file. See upsertPartialResult in contestController.js.
+  testCasesPassed Int?
+  testCasesTotal  Int?
   verifiedVia VerificationSource @default(manual)
 
   @@unique([contestId, userId, problemIndex])

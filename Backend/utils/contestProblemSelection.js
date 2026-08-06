@@ -7,8 +7,9 @@ const RECENCY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // testCases is deliberately excluded here -- it's the judge's answer key, and this
 // snapshot is shipped straight to the client, so it must stay server-side only
-// (fetched fresh at submit-time by the judge).
-const toContestFormat = (p) => ({
+// (fetched fresh at submit-time by the judge). Exported so startContest can shape
+// hand-picked problems identically to auto-selected ones.
+export const toContestFormat = (p) => ({
   title: p.title,
   slug: p.leetcodeId,
   difficulty: p.difficulty,
@@ -17,6 +18,16 @@ const toContestFormat = (p) => ({
   judgeSupported: p.judgeSupported,
   ...(p.judgeSupported ? { codeSnippets: p.codeSnippets } : {})
 });
+
+// Fetches hand-picked problems by id, in the exact order the creator picked them --
+// findMany({ where: { id: { in: ids } } }) does NOT preserve `in`-array order, so
+// results are manually re-sorted to match rather than relying on DB return order.
+export async function fetchHandPickedProblems(prisma, problemIds) {
+  if (!problemIds || problemIds.length === 0) return [];
+  const problems = await prisma.problem.findMany({ where: { id: { in: problemIds } } });
+  const byId = new Map(problems.map((p) => [p.id, p]));
+  return problemIds.map((id) => byId.get(id)).filter(Boolean).map(toContestFormat);
+}
 
 // One filtered-query-shuffle-slice pass. Returns null (doesn't throw) if the filters
 // plus whichever exclusion set the caller passed don't have enough matches -- lets the
@@ -65,9 +76,13 @@ export async function buildExclusionTiers(prisma, rosterUserIds) {
 }
 
 // Walks the tiers in order, returning the first one that yields enough problems.
-export async function selectWithTieredFallback(prisma, { difficulty, selectedTopics, pool, problemCount, rosterUserIds }) {
+// baseExcludeIds (e.g. this contest's own hand-picked problems) is unioned into every
+// tier unconditionally -- those must never be re-selected by the auto-fill regardless
+// of which roster-based tier ends up succeeding.
+export async function selectWithTieredFallback(prisma, { difficulty, selectedTopics, pool, problemCount, rosterUserIds, baseExcludeIds = [] }) {
   const tiers = await buildExclusionTiers(prisma, rosterUserIds);
-  for (const excludeProblemIds of tiers) {
+  for (const tierExcludeIds of tiers) {
+    const excludeProblemIds = Array.from(new Set([...baseExcludeIds, ...tierExcludeIds]));
     const chosen = await selectContestProblems(prisma, { difficulty, selectedTopics, pool, problemCount, excludeProblemIds });
     if (chosen) return chosen;
   }

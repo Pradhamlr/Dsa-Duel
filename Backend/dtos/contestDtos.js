@@ -33,6 +33,23 @@ export const createContestDto = {
     default: null,
     label: 'Curated list',
     validate: (value) => value === null || ['neetcode150', 'neetcode250'].includes(value) || 'Pool must be neetcode150 or neetcode250'
+  },
+  // Cross-field check against numProblems works because numProblems is declared
+  // earlier in this object -- validateDto processes fields in declaration order and
+  // passes everything validated so far as the second arg.
+  handPickedProblemIds: {
+    required: false,
+    default: [],
+    label: 'Hand-picked problems',
+    validate: (value, validated) => {
+      if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
+        return 'Hand-picked problems must be a list of problem ids';
+      }
+      if (validated.numProblems !== undefined && value.length > validated.numProblems) {
+        return 'Cannot hand-pick more problems than the total problem count';
+      }
+      return true;
+    }
   }
 };
 

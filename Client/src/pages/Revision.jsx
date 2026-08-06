@@ -1,22 +1,34 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authFetch, clearAuthSession, getSolvedProblems, getProblemStats, clearSolvedProblems } from '../utils/api'
+import { authFetch, clearAuthSession, getSolvedProblems, getProblemStats, getAnalytics, clearSolvedProblems } from '../utils/api'
 import SolveProgressRing from '../components/SolveProgressRing'
+import AnalyticsPanel from '../components/AnalyticsPanel'
 
-const DIFFICULTY_STYLES = {
-  Easy: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  Medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  Hard: 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-}
-
-const STATUS_STYLES = {
-  solved: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  attempted: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-}
+// A dot + colored word reads lighter than a bordered pill, and is what this section
+// switched to (from a pill, matching DIFFICULTY_STYLES' old shape) once a real problem
+// list showed how quickly several pills per card (difficulty + status + every tag)
+// turns into visual noise -- LeetCode's own list uses plain colored text for exactly
+// this reason.
+const DIFFICULTY_DOT_COLORS = { Easy: '#34d399', Medium: '#fbbf24', Hard: '#fb7185' }
+const DIFFICULTY_TEXT_STYLES = { Easy: 'text-emerald-400', Medium: 'text-amber-400', Hard: 'text-rose-400' }
 
 const ArrowUpRightSVG = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
     <path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const CheckCircleSVG = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <path d="M8 12.5l2.5 2.5L16 9.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+const DashCircleSVG = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+    <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 )
 
@@ -56,6 +68,7 @@ const dangerBtnStyle = {
 export default function Revision() {
   const [rows, setRows] = useState([])
   const [stats, setStats] = useState(null)
+  const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [confirmingClear, setConfirmingClear] = useState(false)
@@ -78,11 +91,13 @@ export default function Revision() {
           window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Your account was deleted. Please log in again.', type: 'error' } }))
           return
         }
-        // Fetched together rather than sequentially -- neither depends on the other,
-        // and this keeps the ring from popping in noticeably after the list.
-        const [data, statsData] = await Promise.all([getSolvedProblems(), getProblemStats()])
+        // Fetched together rather than sequentially -- none of the three depends on
+        // another, and this keeps the ring/analytics from popping in noticeably after
+        // the list.
+        const [data, statsData, analyticsData] = await Promise.all([getSolvedProblems(), getProblemStats(), getAnalytics()])
         setRows(data)
         setStats(statsData)
+        setAnalytics(analyticsData)
       } catch (err) {
         console.error('load solved problems error', err)
         window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Failed to load your problem history', type: 'error' } }))
@@ -107,6 +122,13 @@ export default function Revision() {
         byDifficulty: Object.fromEntries(
           Object.entries(prev.byDifficulty).map(([k, v]) => [k, { ...v, solved: 0 }])
         )
+      }))
+      // Same reasoning as the ring above -- catalog-wide topic totals stay, only this
+      // user's own streak/solve history resets.
+      setAnalytics((prev) => prev && ({
+        streak: { current: 0, longest: 0 },
+        topicStrength: prev.topicStrength.map((t) => ({ ...t, solved: 0 })),
+        history: prev.history.map((h) => ({ ...h, count: 0 }))
       }))
       setConfirmingClear(false)
       window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: 'Progress cleared', type: 'success' } }))
@@ -203,6 +225,12 @@ export default function Revision() {
             </div>
           )}
 
+          {!loading && analytics && (
+            <div className="bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-white/10 mb-6 animate-slideIn" style={{ animationDelay: '0.1s' }}>
+              <AnalyticsPanel analytics={analytics} />
+            </div>
+          )}
+
           {loading ? (
             <div className="bg-gray-900 rounded-2xl p-12 shadow-sm border border-white/10 flex flex-col items-center gap-4">
               <div className="animate-spin h-8 w-8 border-4 border-indigo-900 border-t-indigo-500 rounded-full"></div>
@@ -237,29 +265,28 @@ export default function Revision() {
 
               <div className="grid gap-3">
                 {filteredRows.map((r) => {
-                  const difficultyStyle = DIFFICULTY_STYLES[r.difficulty] || DIFFICULTY_STYLES.Medium
-                  const statusStyle = STATUS_STYLES[r.status]
+                  const dotColor = DIFFICULTY_DOT_COLORS[r.difficulty] || DIFFICULTY_DOT_COLORS.Medium
+                  const difficultyTextStyle = DIFFICULTY_TEXT_STYLES[r.difficulty] || DIFFICULTY_TEXT_STYLES.Medium
+                  const isSolved = r.status === 'solved'
                   return (
                     <div
                       key={r.slug}
                       className="bg-gray-900 rounded-2xl p-5 shadow-sm border border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                     >
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <h3 className="font-semibold text-gray-100 truncate">{r.title}</h3>
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 ${difficultyStyle}`}>
-                            {r.difficulty}
-                          </span>
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 ${statusStyle}`}>
-                            {r.status === 'solved' ? 'Solved' : 'Attempted'}
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium flex-shrink-0 ${isSolved ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {isSolved ? <CheckCircleSVG /> : <DashCircleSVG />}
+                            {isSolved ? 'Solved' : 'Attempted'}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {(r.finalTags || []).map((tag) => (
-                            <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-800 text-gray-400">
-                              {tag}
-                            </span>
-                          ))}
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} aria-hidden />
+                          <span className={`font-medium flex-shrink-0 ${difficultyTextStyle}`}>{r.difficulty}</span>
+                          {(r.finalTags || []).length > 0 && (
+                            <span className="truncate">&middot; {r.finalTags.join(' · ')}</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">

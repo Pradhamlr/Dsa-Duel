@@ -3,7 +3,7 @@ import { withPrisma } from '../utils/database.js';
 import { ensureProblemsAvailable } from '../utils/problemIngestion.js';
 import { fetchRecentAcSubmissions } from '../utils/leetcode.js';
 import { registerClient, unregisterClient, broadcastContestUpdate, getRosterUserIds } from '../services/contestEvents.js';
-import { selectWithTieredFallback } from '../utils/contestProblemSelection.js';
+import { selectWithTieredFallback, fetchHandPickedProblems } from '../utils/contestProblemSelection.js';
 
 const upsertUserDisplayName = async (prisma, userId, displayName) => {
   try {
@@ -51,14 +51,44 @@ export const markResultSolved = async (prisma, { contestId, userId, problemIndex
   await recordProblemInteraction(prisma, { userId, slug, status: 'solved' });
 };
 
+// Partial credit from a judge Submit that didn't fully pass. Only ever called for
+// 'judge' -- manual mark and LeetCode verify have no test-case concept, they're
+// binary via markResultSolved above. Best-ever: a later, worse resubmission never
+// overwrites a better score already on file, same philosophy as
+// recordProblemInteraction's existing "never downgrade solved back to attempted"
+// rule, extended to a numeric score. A prior full solve (solvedAt set) always wins
+// outright and is left untouched here.
+export const upsertPartialResult = async (prisma, { contestId, userId, problemIndex, testCasesPassed, testCasesTotal }) => {
+  const existing = await prisma.result.findUnique({
+    where: { contestId_userId_problemIndex: { contestId, userId, problemIndex } }
+  });
+
+  if (existing?.solvedAt) return;
+  if (existing && existing.testCasesPassed != null && existing.testCasesPassed >= testCasesPassed) return;
+
+  await prisma.result.upsert({
+    where: { contestId_userId_problemIndex: { contestId, userId, problemIndex } },
+    update: { testCasesPassed, testCasesTotal, verifiedVia: 'judge' },
+    create: { contestId, userId, problemIndex, testCasesPassed, testCasesTotal, verifiedVia: 'judge' }
+  });
+};
+
 export const buildContestResponse = async (prisma, contest) => {
   const rows = await prisma.result.findMany({ where: { contestId: contest.id } });
   const results = {};
   const userIds = new Set();
   for (const r of rows) {
     userIds.add(r.userId);
-    results[r.userId] = results[r.userId] || { solved: {} };
-    if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true;
+    results[r.userId] = results[r.userId] || { solved: {}, solvedAt: {}, score: {}, testCasesPassed: {}, testCasesTotal: {} };
+    if (r.solvedAt) {
+      results[r.userId].solved[r.problemIndex] = true;
+      results[r.userId].solvedAt[r.problemIndex] = r.solvedAt.getTime();
+      results[r.userId].score[r.problemIndex] = 1;
+    } else if (r.testCasesPassed != null && r.testCasesTotal) {
+      results[r.userId].score[r.problemIndex] = r.testCasesPassed / r.testCasesTotal;
+      results[r.userId].testCasesPassed[r.problemIndex] = r.testCasesPassed;
+      results[r.userId].testCasesTotal[r.problemIndex] = r.testCasesTotal;
+    }
   }
 
   // Without this, every live SSE-pushed update showed raw userIds in Live Standings
@@ -100,8 +130,11 @@ export const buildContestResponse = async (prisma, contest) => {
 
 export const createContest = async (req, res) => {
   try {
-    const { numProblems, difficulty, duration, selectedTopics, pool } = req.validatedBody;
-    const problemCount = numProblems;
+    const { numProblems, difficulty, duration, selectedTopics, pool, handPickedProblemIds } = req.validatedBody;
+    // Hand-picked problems bypass difficulty/topic/pool entirely -- same mental model
+    // as the NeetCode pool filter, which only ever governs the auto-selected portion.
+    // The fast-fail guard below only needs to cover the remaining auto-fill slots.
+    const remainingSlots = numProblems - handPickedProblemIds.length;
 
     const filters = { difficulty, selectedTopics, pool };
 
@@ -109,13 +142,24 @@ export const createContest = async (req, res) => {
     // roster-based exclusion applied later at Start, which only ever narrows further)
     // before creating a contest whose filters can never produce enough problems.
     try {
-      await ensureProblemsAvailable(filters, problemCount);
+      await ensureProblemsAvailable(filters, remainingSlots);
     } catch (error) {
       console.error('Problem ingestion failed:', error);
       return res.status(500).json({ error: 'Failed to fetch problems from database' });
     }
 
     const result = await withPrisma(async (prisma) => {
+      // These ids came from this app's own search endpoint, so they should already be
+      // real -- this is a defensive check against a stale/tampered request, not the
+      // primary validation path. Failing clearly here beats silently dropping a bad id
+      // and shipping a contest with fewer hand-picked problems than the creator saw.
+      if (handPickedProblemIds.length > 0) {
+        const foundCount = await prisma.problem.count({ where: { id: { in: handPickedProblemIds } } });
+        if (foundCount !== handPickedProblemIds.length) {
+          return { error: 'One or more hand-picked problems could not be found', status: 400 };
+        }
+      }
+
       const id = randomUUID().slice(0, 8);
       const durationSeconds = duration !== undefined ? duration : 90 * 60;
 
@@ -125,14 +169,16 @@ export const createContest = async (req, res) => {
 
       // Problems aren't chosen here -- Phase 4b defers selection to startContest, which
       // can exclude what anyone currently connected in the SSE roster has recently
-      // solved/attempted. See utils/contestProblemSelection.js.
+      // solved/attempted. See utils/contestProblemSelection.js. Hand-picked ids are the
+      // one exception: those are locked in now, not resolved at Start.
       const created = await prisma.contest.create({
         data: {
           id,
-          numProblems: problemCount,
+          numProblems,
           difficulty,
           selectedTopics,
           pool,
+          handPickedProblemIds,
           durationSeconds,
           creatorId
         }
@@ -141,6 +187,7 @@ export const createContest = async (req, res) => {
       return { contestId: created.id };
     });
 
+    if (result.error) return res.status(result.status).json({ error: result.error });
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -160,8 +207,16 @@ export const getContest = async (req, res) => {
       const userIds = new Set()
       for (const r of rows) {
         userIds.add(r.userId)
-        results[r.userId] = results[r.userId] || { solved: {} }
-        if (r.solvedAt) results[r.userId].solved[r.problemIndex] = true
+        results[r.userId] = results[r.userId] || { solved: {}, solvedAt: {}, score: {}, testCasesPassed: {}, testCasesTotal: {} }
+        if (r.solvedAt) {
+          results[r.userId].solved[r.problemIndex] = true
+          results[r.userId].solvedAt[r.problemIndex] = r.solvedAt.getTime()
+          results[r.userId].score[r.problemIndex] = 1
+        } else if (r.testCasesPassed != null && r.testCasesTotal) {
+          results[r.userId].score[r.problemIndex] = r.testCasesPassed / r.testCasesTotal
+          results[r.userId].testCasesPassed[r.problemIndex] = r.testCasesPassed
+          results[r.userId].testCasesTotal[r.problemIndex] = r.testCasesTotal
+        }
       }
 
       let nameMap = {}
@@ -213,23 +268,34 @@ export const startContest = async (req, res) => {
         return { error: 'only creator can start', status: 403 }
       }
 
-      // Deferred problem selection (Phase 4b): pick problems now, not at create time, so
-      // we can try to avoid handing anyone currently in the room a problem they've
-      // recently solved/attempted. getRosterUserIds reads the same in-memory SSE
-      // connection registry the live "Participants" panel is built from.
-      const rosterUserIds = getRosterUserIds(id)
-      const chosen = await selectWithTieredFallback(prisma, {
-        difficulty: contest.difficulty,
-        selectedTopics: contest.selectedTopics,
-        pool: contest.pool,
-        problemCount: contest.numProblems,
-        rosterUserIds
-      })
+      // Hand-picked problems were locked in at creation time -- fetched here in the
+      // creator's own pick order, never re-resolved or filtered by roster history.
+      const handPicked = await fetchHandPickedProblems(prisma, contest.handPickedProblemIds)
+      const remainingSlots = contest.numProblems - handPicked.length
 
-      if (!chosen) {
-        return { error: 'Not enough problems available to start this contest', status: 500 }
+      // Deferred problem selection (Phase 4b): pick the REMAINING problems now, not at
+      // create time, so we can try to avoid handing anyone currently in the room a
+      // problem they've recently solved/attempted. getRosterUserIds reads the same
+      // in-memory SSE connection registry the live "Participants" panel is built from.
+      // baseExcludeIds keeps the auto-fill from ever re-picking a hand-picked problem.
+      let autoFilled = []
+      if (remainingSlots > 0) {
+        const rosterUserIds = getRosterUserIds(id)
+        autoFilled = await selectWithTieredFallback(prisma, {
+          difficulty: contest.difficulty,
+          selectedTopics: contest.selectedTopics,
+          pool: contest.pool,
+          problemCount: remainingSlots,
+          rosterUserIds,
+          baseExcludeIds: contest.handPickedProblemIds
+        })
+
+        if (!autoFilled) {
+          return { error: 'Not enough problems available to start this contest', status: 500 }
+        }
       }
 
+      const chosen = [...handPicked, ...autoFilled]
       const update = { startTime: new Date(), problems: chosen }
       if (duration !== undefined) update.durationSeconds = duration
 

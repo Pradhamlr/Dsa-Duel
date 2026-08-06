@@ -172,6 +172,17 @@ export const getProblemStats = async () => {
   return data
 }
 
+// Solve streak, per-topic strength, and an 84-day daily activity history for the
+// revision tab's analytics section. Already aggregated server-side.
+export const getAnalytics = async () => {
+  const res = await authFetch('/problems/analytics')
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to load your analytics')
+  }
+  return data
+}
+
 // Scoped server-side to the caller's own history -- irreversible, UI must confirm first
 export const clearSolvedProblems = async () => {
   const res = await authFetch('/problems/solved', { method: 'DELETE' })
@@ -235,6 +246,21 @@ export const submitCode = async (contestId, problemIndex, language, code) => {
   const data = await res?.json().catch(() => ({}))
   if (!res || !res.ok) {
     throw new Error(data?.error || 'Failed to submit code')
+  }
+  return data
+}
+
+// Auto-generated edge cases (empty, single-element, negative, large inputs) -- a
+// crash/timeout confidence check, not a correctness verification. Never scores or
+// marks solved, so unlike submitCode this never returns an updated contest.
+export const stressTest = async (contestId, problemIndex, language, code) => {
+  const res = await authFetch(`/contest/${contestId}/stress-test`, {
+    method: 'POST',
+    body: JSON.stringify({ problemIndex, language, code })
+  })
+  const data = await res?.json().catch(() => ({}))
+  if (!res || !res.ok) {
+    throw new Error(data?.error || 'Failed to run stress test')
   }
   return data
 }

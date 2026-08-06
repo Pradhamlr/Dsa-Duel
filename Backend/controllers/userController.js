@@ -1,6 +1,11 @@
 import { withPrisma } from '../utils/database.js';
+import { bucketByDay, computeStreaks, buildDailyHistory } from '../utils/streakCalculator.js';
 
 const LEETCODE_USERNAME_REGEX = /^[a-zA-Z0-9_-]{1,50}$/;
+
+// 12 weeks -- fits a GitHub-style contribution grid (12 columns x 7 rows) without
+// being either a sparse sliver or an overwhelming wall of cells.
+const HISTORY_DAYS = 84;
 
 export const updateUser = async (req, res) => {
   try {
@@ -107,6 +112,95 @@ export const getProblemStats = async (req, res) => {
     res.json(result)
   } catch (err) {
     console.error('getProblemStats error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
+// Solve streak, per-topic strength, and a daily activity history for the revision
+// tab's analytics section -- all three derived from the same SolvedProblem rows
+// already backing getSolvedProblems/getProblemStats, no new tracking table needed.
+export const getAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const result = await withPrisma(async (prisma) => {
+      const [solvedRows, catalogTagRows] = await Promise.all([
+        prisma.solvedProblem.findMany({
+          where: { userId, status: 'solved' },
+          select: { lastInteractionAt: true, problem: { select: { finalTags: true } } }
+        }),
+        prisma.problem.findMany({ select: { finalTags: true } })
+      ])
+
+      const dayCounts = bucketByDay(solvedRows.map((r) => r.lastInteractionAt))
+      const streak = computeStreaks(dayCounts)
+      const history = buildDailyHistory(dayCounts, HISTORY_DAYS)
+
+      // Array tag columns need an in-memory tally -- Prisma has no group-by-array-
+      // element aggregate, and the catalog (~2,458 rows) is nowhere near enough to
+      // need one, same reasoning as the plain-substring problem search.
+      const totalByTag = new Map()
+      for (const row of catalogTagRows) {
+        for (const tag of row.finalTags) totalByTag.set(tag, (totalByTag.get(tag) || 0) + 1)
+      }
+      const solvedByTag = new Map()
+      for (const row of solvedRows) {
+        for (const tag of row.problem.finalTags) solvedByTag.set(tag, (solvedByTag.get(tag) || 0) + 1)
+      }
+      const topicStrength = Array.from(totalByTag.entries())
+        .map(([tag, total]) => ({ tag, solved: solvedByTag.get(tag) || 0, total }))
+        .sort((a, b) => b.solved - a.solved || b.total - a.total)
+
+      return { streak, topicStrength, history }
+    })
+
+    res.json(result)
+  } catch (err) {
+    console.error('getAnalytics error', err)
+    res.status(500).json({ error: 'failed' })
+  }
+};
+
+// Powers hand-picking specific problems into a custom contest (createContest's
+// handPickedProblemIds). Plain case-insensitive substring match on title -- the
+// catalog is only ~2,458 rows, nowhere near enough to need pg_trgm/full-text search
+// infrastructure for what's really a small personal-scale lookup. yourStatus is scoped
+// to the searching user's own solve history only, not any contest's roster -- hand-
+// picking happens during contest creation, before the contest (and so its roster)
+// exists, so a roster-based signal genuinely isn't available yet at this point.
+export const searchProblems = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const q = (req.query.q || '').trim()
+    if (q.length < 2) return res.json({ rows: [] })
+
+    const result = await withPrisma(async (prisma) => {
+      const problems = await prisma.problem.findMany({
+        where: { title: { contains: q, mode: 'insensitive' } },
+        select: { id: true, title: true, difficulty: true, finalTags: true, judgeSupported: true, leetcodeUrl: true },
+        take: 20,
+        orderBy: { title: 'asc' }
+      })
+
+      const statusRows = await prisma.solvedProblem.findMany({
+        where: { userId, problemId: { in: problems.map((p) => p.id) } },
+        select: { problemId: true, status: true }
+      })
+      const statusByProblemId = new Map(statusRows.map((r) => [r.problemId, r.status]))
+
+      return problems.map((p) => ({
+        id: p.id,
+        title: p.title,
+        difficulty: p.difficulty,
+        finalTags: p.finalTags,
+        judgeSupported: p.judgeSupported,
+        url: p.leetcodeUrl,
+        yourStatus: statusByProblemId.get(p.id) || null
+      }))
+    })
+
+    res.json({ rows: result })
+  } catch (err) {
+    console.error('searchProblems error', err)
     res.status(500).json({ error: 'failed' })
   }
 };

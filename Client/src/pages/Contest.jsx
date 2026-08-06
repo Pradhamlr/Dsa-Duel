@@ -186,9 +186,11 @@ export default function Contest(){
       if (!prev) return prev
       const copy = JSON.parse(JSON.stringify(prev))
       copy.results = copy.results || {}
-      copy.results[userId] = copy.results[userId] || { solved: {} }
+      copy.results[userId] = copy.results[userId] || { solved: {}, score: {} }
       copy.results[userId].solved = copy.results[userId].solved || {}
+      copy.results[userId].score = copy.results[userId].score || {}
       copy.results[userId].solved[idx] = !!solved
+      copy.results[userId].score[idx] = solved ? 1 : 0
       return copy
     })
 
@@ -251,23 +253,45 @@ export default function Contest(){
     window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Link copied!', type:'success'}}))
   }
 
+  // Ranking metric is totalScore (sum of per-problem fractions -- 1.0 for a full
+  // solve, testCasesPassed/testCasesTotal for a judge Submit that didn't fully pass),
+  // not raw solvedCount -- so someone at 3/5 on two problems (1.2) correctly outranks
+  // someone with zero full solves but still trails someone with one full solve (1.0
+  // < 1.2 < 2.0). solvedCount is kept alongside purely for display ("2 fully solved").
   function getStandingsRows(){
     if (!contest) return []
     const rows = []
     const results = contest.results || {}
     for (const uid of Object.keys(results)){
       const solvedMap = results[uid].solved || {}
-      const solvedCount = Object.keys(solvedMap).filter(k => solvedMap[k]).length
-      rows.push({ userId: uid, name: results[uid].name || null, solvedCount })
+      const solvedAtMap = results[uid].solvedAt || {}
+      const scoreMap = results[uid].score || {}
+      const solvedIndices = Object.keys(solvedMap).filter(k => solvedMap[k])
+      const solvedCount = solvedIndices.length
+      const totalScore = Object.values(scoreMap).reduce((sum, s) => sum + s, 0)
+      const solveTimes = solvedIndices.map(k => solvedAtMap[k]).filter(t => t != null)
+      // ICPC-style tiebreak: whoever's last (deciding) full solve landed earlier ranks
+      // higher. Only compares full-solve timestamps -- ties resolved purely by partial
+      // credit (no full solves on either side) fall through to the alphabetical fallback.
+      const lastSolveAt = solveTimes.length ? Math.max(...solveTimes) : null
+      rows.push({ userId: uid, name: results[uid].name || null, solvedCount, totalScore, lastSolveAt })
     }
-    rows.sort((a,b)=> b.solvedCount - a.solvedCount || (a.name||a.userId).localeCompare(b.name||b.userId))
+    rows.sort((a,b)=> {
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore
+      if (a.lastSolveAt != null && b.lastSolveAt != null && a.lastSolveAt !== b.lastSolveAt) return a.lastSolveAt - b.lastSolveAt
+      return (a.name||a.userId).localeCompare(b.name||b.userId)
+    })
     return rows
+  }
+
+  function formatScore(n){
+    return Math.round(n * 100) / 100
   }
 
   async function copyResults(){
     const rows = getStandingsRows()
     const total = contest.problems?.length || 0
-    const lines = [`Contest ${id} -- Results`, ...rows.map((r, i) => `${i+1}. ${r.name || r.userId} -- ${r.solvedCount}/${total}`)]
+    const lines = [`Contest ${id} -- Results`, ...rows.map((r, i) => `${i+1}. ${r.name || r.userId} -- ${formatScore(r.totalScore)} pts (${r.solvedCount}/${total} solved)`)]
     await navigator.clipboard.writeText(lines.join('\n'))
     window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Results copied!', type:'success'}}))
   }
@@ -324,14 +348,17 @@ export default function Contest(){
         <div className="space-y-2">
           {rows.map((r, idx) => {
             const isCurrentUser = r.userId === userId
-            const isLeader = ended && idx === 0 && r.solvedCount > 0
+            const isLeader = ended && idx === 0 && r.totalScore > 0
             return (
               <div key={r.userId} className={`flex items-center justify-between px-4 py-2.5 rounded-xl transition-colors ${isLeader ? 'bg-amber-500/10 ring-1 ring-amber-500/30' : isCurrentUser ? 'bg-indigo-500/10' : 'bg-gray-800/50'}`}>
                 <div className="flex items-center gap-3 min-w-0">
                   <span className={`text-xs font-semibold w-5 flex-shrink-0 ${isLeader ? 'text-amber-400' : 'text-gray-500'}`}>#{idx+1}</span>
                   <span className="text-sm font-medium text-gray-200 truncate">{r.name || r.userId}{isCurrentUser ? ' (You)' : ''}</span>
                 </div>
-                <span className="text-sm font-semibold text-gray-100 flex-shrink-0">{r.solvedCount} / {contest.problems?.length || 0}</span>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-sm font-semibold text-gray-100">{formatScore(r.totalScore)} pts</div>
+                  <div className="text-xs text-gray-500">{r.solvedCount} / {contest.problems?.length || 0} solved</div>
+                </div>
               </div>
             )
           })}
@@ -347,7 +374,7 @@ export default function Contest(){
     if (!ended) return null
     const rows = getStandingsRows()
     const leader = rows[0]
-    const hasWinner = leader && leader.solvedCount > 0
+    const hasWinner = leader && leader.totalScore > 0
 
     return (
       <div className="rounded-2xl p-6 shadow-sm border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-purple-500/10 mb-6 animate-slideIn">
@@ -356,8 +383,8 @@ export default function Contest(){
             <div className="text-lg font-semibold text-gray-100 mb-1">Contest Complete</div>
             <div className="text-sm text-gray-400">
               {hasWinner
-                ? <><span className="font-medium text-amber-400">{leader.name || leader.userId}</span> won with {leader.solvedCount} / {contest.problems?.length || 0} solved</>
-                : 'No one solved a problem this time -- worth a rematch?'}
+                ? <><span className="font-medium text-amber-400">{leader.name || leader.userId}</span> won with {formatScore(leader.totalScore)} pts ({leader.solvedCount} / {contest.problems?.length || 0} solved)</>
+                : 'No one made progress this time -- worth a rematch?'}
             </div>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -593,6 +620,9 @@ export default function Contest(){
               <div className="grid gap-4">
                 {contest.problems.map((p, i) => {
                   const solved = contest.results && contest.results[userId] && contest.results[userId].solved && contest.results[userId].solved[i]
+                  const myTestCasesPassed = contest.results && contest.results[userId] && contest.results[userId].testCasesPassed && contest.results[userId].testCasesPassed[i]
+                  const myTestCasesTotal = contest.results && contest.results[userId] && contest.results[userId].testCasesTotal && contest.results[userId].testCasesTotal[i]
+                  const hasPartialProgress = !solved && myTestCasesPassed != null && myTestCasesTotal
                   const difficultyLabel = p.difficulty || 'Medium'
                   const difficultyStyle = DIFFICULTY_STYLES[difficultyLabel] || DIFFICULTY_STYLES.Medium
 
@@ -614,6 +644,11 @@ export default function Contest(){
                                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${difficultyStyle}`}>
                                   {difficultyLabel}
                                 </span>
+                                {hasPartialProgress && (
+                                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    {myTestCasesPassed}/{myTestCasesTotal} test cases
+                                  </span>
+                                )}
                                 {problemTags[i].map((tag) => (
                                   <span key={tag} className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-800 text-gray-400">
                                     {tag}
@@ -688,7 +723,7 @@ export default function Contest(){
           contestId={id}
           problemIndex={editorProblemIndex}
           onClose={() => setEditorProblemIndex(null)}
-          onSolved={(updatedContest) => setContest(updatedContest)}
+          onContestUpdate={(updatedContest) => setContest(updatedContest)}
         />
       )}
     </div>

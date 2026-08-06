@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
 import DOMPurify from 'dompurify'
-import { runCode, submitCode, getProblemDetails } from '../utils/api'
+import { runCode, submitCode, stressTest, getProblemDetails } from '../utils/api'
 
 const LANGUAGES = [
   { key: 'java', label: 'Java', monacoLang: 'java', judgeReady: true },
@@ -29,13 +29,32 @@ const disabledActionStyle = { backgroundColor: '#1e293b', color: '#64748b', bord
 const disabledPrimaryStyle = { backgroundColor: '#475569', color: '#ffffff', fontWeight: 600, cursor: 'not-allowed', border: 'none' }
 const actionStyle = { backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', fontWeight: 600, cursor: 'pointer' }
 const primaryStyle = { background: 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)', color: '#ffffff', fontWeight: 600, cursor: 'pointer', border: 'none', boxShadow: '0 2px 10px rgba(99,102,241,0.18)' }
+// Amber, not the neutral gray Run uses -- matches the "diagnostic, not a verdict" accent
+// already established for the in-progress test-case badge on the contest page, so a
+// stress-test result doesn't visually read as a correctness pass/fail.
+const stressActionStyle = { backgroundColor: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, cursor: 'pointer' }
+const disabledStressActionStyle = { backgroundColor: '#1e293b', color: '#64748b', border: '1px solid #334155', fontWeight: 600, cursor: 'not-allowed' }
 
 const formatExampleInput = (input) => {
   if (!input || typeof input !== 'object') return String(input)
   return Object.entries(input).map(([key, value]) => `${key} = ${JSON.stringify(value)}`).join(', ')
 }
 
-export default function CodeEditor({ problem, contestId, problemIndex, onClose, onSolved }) {
+// Stress-test inputs can be large (e.g. a 1000-element array) by design -- truncate for
+// display so the results panel doesn't fill with an unreadable wall of numbers.
+const formatMaybeLargeValue = (value) => {
+  if (Array.isArray(value) && value.length > 10) {
+    return `[${value.slice(0, 5).join(', ')}, ...] (${value.length} items)`
+  }
+  return JSON.stringify(value)
+}
+
+const formatStressInput = (input) => {
+  if (!input || typeof input !== 'object') return String(input)
+  return Object.entries(input).map(([key, value]) => `${key} = ${formatMaybeLargeValue(value)}`).join(', ')
+}
+
+export default function CodeEditor({ problem, contestId, problemIndex, onClose, onContestUpdate }) {
   const [language, setLanguage] = useState('java')
   const [codeByLanguage, setCodeByLanguage] = useState(() => ({
     java: problem.codeSnippets?.java || '',
@@ -43,8 +62,10 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
   }))
   const [running, setRunning] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [stressing, setStressing] = useState(false)
   const [verdict, setVerdict] = useState(null)
   const [testResults, setTestResults] = useState(null)
+  const [stressResult, setStressResult] = useState(null)
   const [actionError, setActionError] = useState('')
 
   const [details, setDetails] = useState(null)
@@ -63,7 +84,7 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
   }, [contestId, problemIndex])
 
   const judgeReady = LANGUAGES.find((l) => l.key === language)?.judgeReady
-  const busy = running || submitting
+  const busy = running || submitting || stressing
   const judgeSupported = !!problem.judgeSupported
 
   const handleCodeChange = (value) => {
@@ -74,6 +95,7 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
     setRunning(true)
     setActionError('')
     setVerdict(null)
+    setStressResult(null)
     try {
       const data = await runCode(contestId, problemIndex, language, codeByLanguage[language])
       setVerdict(data.verdict)
@@ -89,12 +111,16 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
     setSubmitting(true)
     setActionError('')
     setVerdict(null)
+    setStressResult(null)
     try {
       const data = await submitCode(contestId, problemIndex, language, codeByLanguage[language])
       setVerdict(data.verdict)
       setTestResults(data.testResults || null)
-      if (data.verdict === 'accepted' && data.contest && onSolved) {
-        onSolved(data.contest)
+      // A non-full-pass Submit now also earns partial credit toward standings (best-
+      // ever, computed server-side), so the parent's contest state needs refreshing
+      // either way, not just on a full accept.
+      if (data.contest && onContestUpdate) {
+        onContestUpdate(data.contest)
       }
       window.dispatchEvent(new CustomEvent('show-toast', {
         detail: {
@@ -106,6 +132,22 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
       setActionError(err.message || 'Submit failed')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleStressTest = async () => {
+    setStressing(true)
+    setActionError('')
+    setVerdict(null)
+    setTestResults(null)
+    setStressResult(null)
+    try {
+      const data = await stressTest(contestId, problemIndex, language, codeByLanguage[language])
+      setStressResult(data)
+    } catch (err) {
+      setActionError(err.message || 'Stress test failed')
+    } finally {
+      setStressing(false)
     }
   }
 
@@ -204,7 +246,7 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
                   {LANGUAGES.map((lang) => (
                     <button
                       key={lang.key}
-                      onClick={() => { setLanguage(lang.key); setVerdict(null); setTestResults(null); setActionError('') }}
+                      onClick={() => { setLanguage(lang.key); setVerdict(null); setTestResults(null); setStressResult(null); setActionError('') }}
                       className="px-3 py-1.5 text-sm rounded-lg"
                       style={language === lang.key ? activeTabStyle : inactiveTabStyle}
                     >
@@ -257,6 +299,33 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
                   </div>
                 )}
 
+                {stressResult && (
+                  <div className="px-6 py-3 border-t border-white/10 max-h-48 overflow-y-auto flex-shrink-0">
+                    <div className="text-xs text-gray-500 mb-2">
+                      Auto-generated edge cases (empty, single-element, negative, and large inputs) -- checks for crashes, not correctness. Doesn't affect your score.
+                    </div>
+                    {stressResult.compileOutput && (
+                      <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 mb-2">
+                        Compile error: {stressResult.compileOutput}
+                      </div>
+                    )}
+                    {stressResult.message && !stressResult.results && (
+                      <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 mb-2">
+                        {stressResult.verdict}: {stressResult.message}
+                      </div>
+                    )}
+                    {Array.isArray(stressResult.results) && stressResult.results.map((r, i) => (
+                      <div key={i} className={`text-xs rounded-lg px-3 py-2 mb-1.5 border ${r.crashed ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'}`}>
+                        <div className="font-semibold">{r.label}: {r.crashed ? 'Crashed' : 'Ran OK'}</div>
+                        <div className="mt-1 space-y-0.5">
+                          <div>Input: {formatStressInput(r.input)}</div>
+                          {r.crashed ? <div>Error: {r.error}</div> : <div>Output: {formatMaybeLargeValue(r.actualOutput)}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 flex-shrink-0">
                   <button
                     onClick={judgeReady ? handleRun : undefined}
@@ -266,6 +335,15 @@ export default function CodeEditor({ problem, contestId, problemIndex, onClose, 
                     style={!judgeReady || busy ? disabledActionStyle : actionStyle}
                   >
                     {running ? 'Running...' : 'Run'}
+                  </button>
+                  <button
+                    onClick={judgeReady ? handleStressTest : undefined}
+                    disabled={!judgeReady || busy}
+                    title={judgeReady ? 'Check for crashes on auto-generated edge cases -- not a correctness check' : "C++ execution isn't wired up yet"}
+                    className="px-4 py-2 rounded-xl text-sm"
+                    style={!judgeReady || busy ? disabledStressActionStyle : stressActionStyle}
+                  >
+                    {stressing ? 'Stress Testing...' : 'Stress Test'}
                   </button>
                   <button
                     onClick={judgeReady ? handleSubmit : undefined}
