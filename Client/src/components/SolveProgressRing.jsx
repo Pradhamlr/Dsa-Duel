@@ -31,8 +31,13 @@ const CENTER = SIZE / 2
 const START_ANGLE = 225
 const SWEEP = 270
 // Small blank wedge between adjacent difficulty slices so they read as distinct arcs
-// rather than one continuous band.
-const SLICE_GAP_DEG = 4
+// rather than one continuous band. Has to be wide enough to actually show as a gap
+// once round line caps are accounted for: each stroke's rounded end bulges STROKE/2
+// past its true endpoint in the tangential direction, so two adjacent slices' caps eat
+// into a too-small gap from both sides and visually blend into a muddy seam instead of
+// a clean separation -- verified live (a 4deg gap produced exactly that overlap at
+// RADIUS=93/STROKE=14). 12deg leaves clear daylight between the caps at this radius.
+const SLICE_GAP_DEG = 12
 
 const polarToCartesian = (angleDeg) => {
   const rad = ((angleDeg - 90) * Math.PI) / 180

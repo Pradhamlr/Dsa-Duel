@@ -18,6 +18,20 @@ const MoonIcon = () => (
   </svg>
 )
 
+// A native range input insets its thumb by half the thumb's own width -- at the
+// track's min, the thumb's LEFT edge sits at the track's left edge (not the thumb's
+// center), and symmetrically at max, so the thumb's actual travel is
+// trackWidth - thumbWidth, not the full trackWidth. A naive `fraction * 100%` gradient
+// stop ignores this and only lines up with the real thumb position at the exact
+// midpoint, drifting up to +-thumbWidth/2 px at the extremes -- measured live as a
+// real ~8-9px visible offset at fraction ~0.22/0.83 on a 448px track, not a rounding
+// hunch. Mixing a % (relative to the track's own width, so still responsive) with a
+// fixed px correction reproduces the true thumb-center formula
+// (thumbWidth/2 + fraction*(trackWidth-thumbWidth)) without ever measuring the
+// track's pixel width in JS.
+const sliderFillPosition = (fraction, thumbWidth = 28) =>
+  `calc(${fraction * 100}% + ${(0.5 - fraction) * thumbWidth}px)`
+
 const BackIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="m15 18-6-6 6-6"/>
@@ -819,7 +833,13 @@ export default function Home(){
                         stroke="url(#gradient)"
                         strokeWidth="8"
                         strokeLinecap="round"
-                        strokeDasharray={`${(durationMin - 10) / (240 - 10) * 283} 283`}
+                        // A round line cap on a truly zero-length arc (durationMin at
+                        // its minimum) still paints a small dot at the start point, but
+                        // it reads as a stray rendering glitch rather than "duration is
+                        // at its minimum" -- floored to a small but real, clearly
+                        // visible arc segment instead, verified live against the actual
+                        // minimum-value render.
+                        strokeDasharray={`${Math.max((durationMin - 10) / (240 - 10) * 283, 10)} 283`}
                         className="transition-all duration-500 ease-out"
                       />
                       <defs>
@@ -849,9 +869,26 @@ export default function Home(){
                         onChange={e => setDurationMin(Number(e.target.value))}
                         className="w-full h-3 rounded-lg appearance-none cursor-pointer"
                         style={{
-                          background: `linear-gradient(to right, #6366f1 0%, #a855f7 ${((durationMin - 10) / (240 - 10)) * 100}%, #334155 ${((durationMin - 10) / (240 - 10)) * 100}%, #334155 100%)`,
+                          background: `linear-gradient(to right, #6366f1 0%, #a855f7 ${sliderFillPosition((durationMin - 10) / (240 - 10))}, #334155 ${sliderFillPosition((durationMin - 10) / (240 - 10))}, #334155 100%)`,
                           WebkitAppearance: 'none',
-                          outline: 'none'
+                          outline: 'none',
+                          // A global, unscoped `input, select, textarea { padding:
+                          // 12px 16px; border: 2px solid ...; border-radius: 12px;
+                          // backdrop-filter: blur(10px) }` rule in index.css (meant
+                          // for text inputs) also matches this range input, since its
+                          // selector isn't scoped by `type`. That padding/border was
+                          // silently insetting the native track's actual usable width
+                          // by ~18px per side -- the fill-vs-thumb sync fix above was
+                          // computed correctly for a clean box, but was being applied
+                          // against this padded one instead, producing exactly the
+                          // asymmetric leak (purple past the thumb at min, gray past
+                          // it at max) reported and confirmed live. Overridden inline,
+                          // same pattern as this app's existing button-style overrides
+                          // for the identical unlayered-CSS-wins gotcha.
+                          padding: 0,
+                          border: 'none',
+                          borderRadius: '8px',
+                          backdropFilter: 'none'
                         }}
                       />
                       <style>{`
