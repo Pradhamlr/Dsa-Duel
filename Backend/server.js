@@ -31,6 +31,7 @@ const { default: app } = await import('./app.js');
 const { prisma } = await import('./utils/database.js');
 const { closeAllConnections } = await import('./services/contestEvents.js');
 const { logger } = await import('./utils/logger.js');
+const { redis } = await import('./utils/redisClient.js');
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
@@ -88,17 +89,43 @@ const server = app.listen(PORT, () => {
     }
 });
 
-// A Render redeploy sends SIGTERM, not a hard kill -- without this, every open SSE
-// connection (which never closes on its own) just gets severed with no warning, and
-// Prisma's connection to Postgres is left to whatever cleanup the OS does on process
-// exit rather than a clean disconnect. server.close() alone would hang forever waiting
-// for the SSE streams to end naturally, so those are explicitly closed first.
+// A systemd restart (or a Render redeploy) sends SIGTERM, not a hard kill -- without
+// this, every open SSE connection (which never closes on its own) just gets severed
+// with no warning, and Prisma's connection to Postgres is left to whatever cleanup the
+// OS does on process exit rather than a clean disconnect. server.close() alone would
+// hang forever waiting for the SSE streams to end naturally, so those are explicitly
+// closed first.
+//
+// Redis is closed here too. This was missing originally and was harmless while the only
+// Redis usage was short request-scoped commands (rate limit / denylist / pending
+// registration) -- nothing was ever in flight at shutdown. It stops being harmless once
+// this runs under a real process supervisor that restarts it regularly, and especially
+// if anything later holds a long-lived or blocking Redis connection (a queue consumer
+// would), where an unclosed socket leaks a connection against the provider's limit on
+// every restart.
+async function closeRedis() {
+    // A lazyConnect client that never actually connected has status 'wait', and QUIT on
+    // it errors rather than no-oping -- so only send QUIT when there's a live connection
+    // to close gracefully, and fall back to a local socket teardown otherwise.
+    try {
+        if (redis.status === 'ready') {
+            await redis.quit()
+        } else {
+            redis.disconnect()
+        }
+    } catch (err) {
+        console.error('Redis shutdown error:', err.message)
+        redis.disconnect()
+    }
+}
+
 async function gracefulShutdown(signal) {
     console.log(`${signal} received, shutting down gracefully...`)
     closeAllConnections()
     server.close(async () => {
         console.log('HTTP server closed')
         await prisma.$disconnect()
+        await closeRedis()
         process.exit(0)
     })
     // Safety net in case something (a stuck request, a slow disconnect) keeps the
