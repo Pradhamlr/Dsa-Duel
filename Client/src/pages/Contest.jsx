@@ -611,10 +611,7 @@ export default function Contest(){
 
               {!contest.startTime && contest.problems.length === 0 ? (
                 <div className="bg-gray-900 rounded-2xl p-8 shadow-sm border border-white/10 text-center animate-slideIn">
-                  <div className="text-lg font-semibold text-gray-100 mb-2">Problems will be revealed when the contest starts</div>
-                  <div className="text-sm text-gray-500">
-                    Selection happens at Start, not now -- it can steer around problems anyone currently in the room has recently solved or attempted.
-                  </div>
+                  <div className="text-lg font-semibold text-gray-100">Problems will be revealed when the contest starts</div>
                 </div>
               ) : (
               <div className="grid gap-4">
