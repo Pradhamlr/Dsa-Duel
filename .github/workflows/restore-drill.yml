@@ -1,0 +1,161 @@
+name: Backup Restore Drill
+
+# "We have backups" and "we can recover" are different claims. backup.yml proves a dump
+# was produced; only actually restoring one proves it's usable. The failure this exists
+# to catch is a backup that runs green every night for months and turns out to be
+# unrestorable at exactly the moment it's needed.
+#
+# Weekly rather than daily on purpose: it burns Actions minutes and a silently-corrupt
+# backup is a slow-moving failure, not one where a few days' detection delay matters.
+# Runs Monday 05:00 UTC, comfortably after backup.yml's 03:00 daily run.
+#
+# GitHub emails on scheduled-workflow failure by default, so a red run notifies without
+# any extra alerting wired up here.
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+# actions:read is required for `gh run list` / `gh run download` to reach *another*
+# workflow's runs and artifacts. Deliberately not granting write anything.
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+
+    # Postgres 17 to match the server the dump was taken from (Supabase is 17.x).
+    # pg_restore refuses to restore into an older server than the dump's origin, the
+    # same class of version guard backup.yml already hit from the client side.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Same reasoning as backup.yml: ubuntu-latest ships an older client, and the
+      # explicitly-versioned package name avoids apt reporting "already newest version"
+      # for a pre-installed older build.
+      - name: Install postgresql-client-17 (via the official PGDG repo)
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      # backup.yml names each artifact db-backup-<timestamp>, so there's no fixed name to
+      # fetch -- find the most recent successful run and pull whatever it produced.
+      - name: Download the most recent successful backup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow=backup.yml \
+                     --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "::error::No successful backup.yml run found -- nothing to restore."
+            exit 1
+          fi
+          echo "Restoring from backup run $RUN_ID"
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir ./restore
+          find ./restore -type f -name '*.dump.gpg' -exec ls -lh {} +
+
+      - name: Decrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          GPG_FILE=$(find ./restore -type f -name '*.dump.gpg' | head -1)
+          if [ -z "$GPG_FILE" ]; then
+            echo "::error::Artifact contained no .dump.gpg file."
+            exit 1
+          fi
+          gpg --batch --yes --passphrase "$BACKUP_PASSPHRASE" --decrypt "$GPG_FILE" > restored.dump
+          ls -lh restored.dump
+          # PGDMP is the literal magic header of a custom-format dump. Catches the case
+          # where decryption "succeeds" into garbage, or an error page got archived.
+          if head -c 5 restored.dump | grep -q 'PGDMP'; then
+            echo "PGDMP header present -- genuine custom-format dump"
+          else
+            echo "::error::Decrypted file is not a valid custom-format pg_dump."
+            exit 1
+          fi
+
+      - name: Restore into the throwaway database
+        run: |
+          /usr/lib/postgresql/17/bin/pg_restore --version
+          # --no-owner/--no-privileges: the dump references Supabase-managed roles that
+          # don't exist on a vanilla Postgres, so ownership and GRANT statements would
+          # error pointlessly.
+          #
+          # Non-zero exit is tolerated on purpose. A Supabase dump also carries
+          # references to its own extensions and internal schemas, which produce noisy
+          # but harmless failures here. Exit code is therefore NOT the verdict -- the
+          # assertions below are, because they check whether the actual data landed.
+          set +e
+          /usr/lib/postgresql/17/bin/pg_restore \
+            --no-owner --no-privileges \
+            -d postgresql://postgres:postgres@localhost:5432/restore_test \
+            restored.dump 2> restore-errors.log
+          echo "pg_restore exit code: $?"
+          set -e
+          echo "--- first 40 lines of pg_restore stderr (informational) ---"
+          head -40 restore-errors.log || true
+
+      # The actual verdict. Everything above can look fine while producing an empty
+      # database, which is precisely the silent failure this drill exists to catch.
+      - name: Assert the restored data is real
+        run: |
+          PSQL=/usr/lib/postgresql/17/bin/psql
+          URL=postgresql://postgres:postgres@localhost:5432/restore_test
+          q() { "$PSQL" "$URL" -t -A -c "$1"; }
+          fail=0
+
+          echo "--- tables present in public schema ---"
+          q "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;"
+
+          echo ""
+          echo "--- row counts ---"
+          for t in User Contest Problem Result Session Submission SolvedProblem; do
+            n=$(q "SELECT COUNT(*) FROM \"$t\";" 2>/dev/null)
+            if [ -z "$n" ]; then
+              echo "::error::Expected table \"$t\" is missing from the restore."
+              fail=1
+            else
+              printf '  %-16s %s\n' "$t" "$n"
+            fi
+          done
+
+          # A dump that restores cleanly but arrives nearly empty is the nightmare case:
+          # green pipeline, useless backup. The catalog is ~2,458 problems, so anything
+          # under 2,000 means real data did not survive the round trip.
+          PROBLEMS=$(q "SELECT COUNT(*) FROM \"Problem\";" 2>/dev/null || echo 0)
+          if [ "${PROBLEMS:-0}" -lt 2000 ]; then
+            echo "::error::Problem table has ${PROBLEMS:-0} rows, expected >= 2000 -- backup looks truncated."
+            fail=1
+          fi
+
+          MIGRATIONS=$(q "SELECT COUNT(*) FROM _prisma_migrations;" 2>/dev/null || echo 0)
+          echo "  migrations recorded: ${MIGRATIONS:-0}"
+          if [ "${MIGRATIONS:-0}" -lt 1 ]; then
+            echo "::error::No Prisma migration history in the restore -- schema is incomplete."
+            fail=1
+          fi
+
+          echo ""
+          if [ "$fail" -eq 0 ]; then
+            echo "RESTORE DRILL PASSED -- this backup is genuinely recoverable."
+          else
+            echo "RESTORE DRILL FAILED"
+            exit 1
+          fi
