@@ -83,7 +83,7 @@ export default function App(){
           // Verify user still exists in database
           try {
             const response = await fetch(
-              `${import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'}/auth/me`,
+              `${import.meta.env.VITE_API_BASE || 'https://api.pradhamlr.me'}/auth/me`,
               {
                 headers: {
                   'Authorization': `Bearer ${token}`

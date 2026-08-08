@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_BASE || 'https://dsa-duel.onrender.com'
+const API = import.meta.env.VITE_API_BASE || 'https://api.pradhamlr.me'
 
 export const clearAuthSession = () => {
   localStorage.removeItem('duel_access_token')
